@@ -1,131 +1,213 @@
 package com.example.helpinghand.ui.screens
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.Sort
+import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.navigation.NavHostController
 import com.example.helpinghand.R
+import com.example.helpinghand.ui.theme.DashboardColors
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DashboardScreen(navController: NavHostController) {
     Scaffold(
+        containerColor = DashboardColors.Dashboard,
         topBar = {
-            CenterAlignedTopAppBar(
-                title = { Text("Home", style = MaterialTheme.typography.titleLarge) },
-                navigationIcon = {
-                    IconButton(onClick = { /* maybe open drawer later */ }) {
-                        Icon(
-                            painter = painterResource(id = R.drawable.ic_launcher_foreground),
-                            contentDescription = "Profile"
-                        )
-                    }
-                },
-                actions = {
-                    IconButton(onClick = { /* edit order */ }) {
-                        Icon(Icons.Default.Edit, contentDescription = "Edit")
-                    }
-                    IconButton(onClick = { /* sort priority */ }) {
-                        Icon(Icons.Default.Sort, contentDescription = "Sort")
-                    }
-                }
-            )
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(DashboardColors.Dashboard)
+            ) {
+                StatusBar()
+                TopAppBar(
+                    title = {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.padding(start = 8.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Filled.Home,
+                                contentDescription = "Home",
+                                tint = DashboardColors.Label,
+                                modifier = Modifier
+                                    .size(24.dp)
+                                    .padding(end = 8.dp)
+                            )
+                            Text(
+                                text = "Home",
+                                fontSize = 22.sp,
+                                color = DashboardColors.Headline
+                            )
+                        }
+                    },
+                    actions = {
+                        IconButton(onClick = { navController.navigate("settings") }) {
+                            Icon(
+                                imageVector = Icons.Filled.Settings,
+                                contentDescription = "Settings",
+                                tint = DashboardColors.Icon
+                            )
+                        }
+                    },
+                    colors = TopAppBarDefaults.topAppBarColors(
+                        containerColor = DashboardColors.Dashboard
+                    )
+                )
+            }
         }
-    ) { innerPadding ->
+    ) { inner ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(innerPadding)
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+                .padding(inner)
+                .padding(horizontal = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(50.dp, Alignment.CenterVertically)
         ) {
-            // First row (Shopping + Cleaning)
+            // === grid rows ===
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(16.dp)
+                horizontalArrangement = Arrangement.spacedBy(18.dp)
             ) {
-                DashboardCard(
-                    title = "Shopping",
-                    iconRes = R.drawable.ic_shopping,
-                    onClick = { navController.navigate("shopping") }
-                )
-                DashboardCard(
-                    title = "Cleaning",
-                    iconRes = R.drawable.ic_cleaning,
-                    onClick = { navController.navigate("cleaning") }
-                )
+                DashboardTilePng(
+                    resId = R.drawable.ic_shopping,
+                    modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(18.dp),
+                    borderColor = DashboardColors.Label
+                ) { navController.navigate("shopping") }
+
+                DashboardTilePng(
+                    resId = R.drawable.ic_cleaning,
+                    modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(18.dp),
+                    borderColor = DashboardColors.Label
+                ) { navController.navigate("cleaning") }
             }
 
-            // Second row (Bills + Appointments)
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(16.dp)
+                horizontalArrangement = Arrangement.spacedBy(18.dp)
             ) {
-                DashboardCard(
-                    title = "Bills",
-                    iconRes = R.drawable.ic_bills,
-                    onClick = { navController.navigate("bills") }
-                )
-                DashboardCard(
-                    title = "Appointments",
-                    iconRes = R.drawable.ic_appointments,
-                    onClick = { navController.navigate("appointments") }
-                )
+                DashboardTilePng(
+                    resId = R.drawable.ic_bills,
+                    modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(18.dp),
+                    borderColor = DashboardColors.Label
+                ) { navController.navigate("bills") }
+
+                DashboardTilePng(
+                    resId = R.drawable.ic_appointments,
+                    modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(18.dp),
+                    borderColor = DashboardColors.Label
+                ) { navController.navigate("appointments") }
             }
 
-            // Contacts (full width)
-            DashboardCard(
-                title = "Contacts",
-                iconRes = R.drawable.ic_contacts,
-                modifier = Modifier.fillMaxWidth(),
-                onClick = { navController.navigate("contacts") }
-            )
+            // === full-width Contacts card ===
+            FullWidthContactsTile(
+                text = "Contacts",
+                shape = RoundedCornerShape(18.dp),
+                borderColor = DashboardColors.Label
+            ) { navController.navigate("contacts") }
         }
     }
 }
 
 @Composable
-fun DashboardCard(
-    title: String,
-    iconRes: Int,
+fun StatusBar() {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 24.dp, vertical = 10.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text("9:30", color = DashboardColors.Time, fontSize = 14.sp)
+        Text("●●●", color = DashboardColors.Time, fontSize = 12.sp)
+    }
+}
+
+/** Single square PNG card with strong elevation + visible border */
+@Composable
+private fun DashboardTilePng(
+    resId: Int,
     modifier: Modifier = Modifier,
+    shape: RoundedCornerShape,
+    borderColor: androidx.compose.ui.graphics.Color,
     onClick: () -> Unit
 ) {
     Surface(
+        onClick = onClick,
         modifier = modifier
             .aspectRatio(1f)
-            .clickable(onClick = onClick),
-        shape = RoundedCornerShape(16.dp),
-        tonalElevation = 3.dp,
-        color = MaterialTheme.colorScheme.surfaceVariant
+            .shadow(8.dp, shape = shape, clip = false),
+        shape = shape,
+        border = BorderStroke(2.dp, borderColor),
+        color = DashboardColors.CardBackground,
+        tonalElevation = 8.dp
     ) {
-        Column(
+        Box(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(16.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
+                .padding(20.dp),
+            contentAlignment = Alignment.Center
         ) {
             Image(
-                painter = painterResource(id = iconRes),
-                contentDescription = title,
-                modifier = Modifier.size(64.dp),
-                colorFilter = ColorFilter.tint(MaterialTheme.colorScheme.onSurfaceVariant)
+                painter = painterResource(resId),
+                contentDescription = null,
+                modifier = Modifier
+                    .fillMaxSize(0.75f),  // fills more of the box
+                contentScale = ContentScale.Fit
             )
-            Spacer(Modifier.height(8.dp))
-            Text(title, fontWeight = FontWeight.Bold)
+        }
+    }
+}
+
+/** Contacts tile — text only, centered near top, strong elevation */
+@Composable
+private fun FullWidthContactsTile(
+    text: String,
+    shape: RoundedCornerShape,
+    borderColor: androidx.compose.ui.graphics.Color,
+    onClick: () -> Unit
+) {
+    Surface(
+        onClick = onClick,
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(140.dp)
+            .shadow(8.dp, shape = shape, clip = false),
+        shape = shape,
+        border = BorderStroke(2.dp, borderColor),
+        color = DashboardColors.CardBackground,
+        tonalElevation = 8.dp
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = 20.dp, vertical = 12.dp),
+            contentAlignment = Alignment.TopCenter
+        ) {
+            Text(
+                text = text,
+                style = MaterialTheme.typography.titleLarge,
+                color = DashboardColors.Headline
+            )
         }
     }
 }

@@ -10,6 +10,7 @@ import androidx.compose.material3.dynamicDarkColorScheme
 import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 
 private val DarkColorScheme = darkColorScheme(
@@ -54,4 +55,15 @@ fun HelpingHandTheme(
         typography = Typography(),
         content = content
     )
+}
+
+object DashboardColors {
+    val Dashboard = Color(0xFFEADDFF)
+    val Time = Color(0xFF1D1B20)
+    val Headline = Color(0xFF1D1B20)
+    val Icon = Color(0xFF49454F)
+    val Label = Color(0xFF6750A4)
+    val CardBackground = Color(0xFFFFFFFF)
+    val GestureBar = Color(0xFFF3EDF7)
+    val Handle = Color(0xFF1D1B20)
 }
