@@ -34,12 +34,12 @@ fun DashboardScreen(navController: NavHostController) {
                     .fillMaxWidth()
                     .background(DashboardColors.Dashboard)
             ) {
-                StatusBar()
                 TopAppBar(
                     title = {
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
                             modifier = Modifier.padding(start = 8.dp)
+
                         ) {
                             Icon(
                                 imageVector = Icons.Filled.Home,
@@ -66,7 +66,7 @@ fun DashboardScreen(navController: NavHostController) {
                         }
                     },
                     colors = TopAppBarDefaults.topAppBarColors(
-                        containerColor = DashboardColors.Dashboard
+                        containerColor = DashboardColors.AppBar
                     )
                 )
             }
@@ -125,20 +125,6 @@ fun DashboardScreen(navController: NavHostController) {
                 borderColor = DashboardColors.Label
             ) { navController.navigate("contacts") }
         }
-    }
-}
-
-@Composable
-fun StatusBar() {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 24.dp, vertical = 10.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Text("9:30", color = DashboardColors.Time, fontSize = 14.sp)
-        Text("●●●", color = DashboardColors.Time, fontSize = 12.sp)
     }
 }
 
