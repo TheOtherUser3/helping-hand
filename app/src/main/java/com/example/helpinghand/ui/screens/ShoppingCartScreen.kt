@@ -9,6 +9,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Person
@@ -45,7 +46,17 @@ fun ShoppingCartScreen(navController: NavHostController) {
                 .padding(inner)
         ) {
             // --- Top App Bar ---
+            // --- Top App Bar ---
             TopAppBar(
+                navigationIcon = {
+                    IconButton(onClick = { navController.popBackStack() }) {
+                        Icon(
+                            imageVector = Icons.Default.ArrowBack,
+                            contentDescription = "Back to Dashboard",
+                            tint = C.OnBackground
+                        )
+                    }
+                },
                 title = {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
@@ -70,6 +81,7 @@ fun ShoppingCartScreen(navController: NavHostController) {
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = C.Background)
             )
+
 
             // --- Title Row ---
             Row(
@@ -165,7 +177,6 @@ fun ShoppingCartScreen(navController: NavHostController) {
                             .height(120.dp)
                     )
                 }
-                GestureBar()
             }
         }
 
@@ -234,23 +245,4 @@ private fun PlaceholderCard(modifier: Modifier) {
         tonalElevation = 6.dp,
         border = BorderStroke(1.5.dp, C.Primary.copy(alpha = 0.6f))
     ) {}
-}
-
-@Composable
-private fun GestureBar() {
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(28.dp)
-            .background(C.GestureBar),
-        contentAlignment = Alignment.Center
-    ) {
-        Box(
-            modifier = Modifier
-                .width(56.dp)
-                .height(4.dp)
-                .clip(RoundedCornerShape(2.dp))
-                .background(C.OnBackground)
-        )
-    }
 }
