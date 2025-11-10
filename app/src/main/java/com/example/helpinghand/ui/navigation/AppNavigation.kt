@@ -6,7 +6,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.example.helpinghand.ui.screens.DashboardScreen
-import com.example.helpinghand.ui.screens.feature.ShoppingAndMealsApp
+import com.example.helpinghand.ui.screens.ShoppingCartScreen
 
 
 @Composable
@@ -15,7 +15,7 @@ fun AppNavigation() {
     NavHost(navController = navController, startDestination = "dashboard") {
         composable("dashboard") { DashboardScreen(navController) }
 
-        composable("shopping") { ShoppingAndMealsApp() }
+        composable("shopping") { ShoppingCartScreen(navController) }
         composable("cleaning") { Text("Cleaning Screen Coming Soon") }
         composable("bills") { Text("Bills Screen Coming Soon") }
         composable("appointments") { Text("Appointments Screen Coming Soon") }
