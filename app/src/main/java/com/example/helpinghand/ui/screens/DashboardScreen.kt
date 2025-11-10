@@ -11,6 +11,8 @@ import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -19,13 +21,17 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
 import com.example.helpinghand.R
 import com.example.helpinghand.ui.theme.DashboardColors
+import com.example.helpinghand.ui.viewmodel.DashboardViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun DashboardScreen(navController: NavHostController) {
+fun DashboardScreen(navController: NavHostController, viewModel: DashboardViewModel = viewModel()) {
+    val itemCount by viewModel.itemCount.collectAsState()
+
     Scaffold(
         containerColor = DashboardColors.Dashboard,
         topBar = {
@@ -39,7 +45,6 @@ fun DashboardScreen(navController: NavHostController) {
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
                             modifier = Modifier.padding(start = 8.dp)
-
                         ) {
                             Icon(
                                 imageVector = Icons.Filled.Home,
@@ -79,13 +84,13 @@ fun DashboardScreen(navController: NavHostController) {
                 .padding(horizontal = 16.dp),
             verticalArrangement = Arrangement.spacedBy(50.dp, Alignment.CenterVertically)
         ) {
-            // === grid rows ===
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(18.dp)
             ) {
                 DashboardTilePng(
                     resId = R.drawable.ic_shopping,
+                    count = itemCount,
                     modifier = Modifier.weight(1f),
                     shape = RoundedCornerShape(18.dp),
                     borderColor = DashboardColors.Label
@@ -93,6 +98,7 @@ fun DashboardScreen(navController: NavHostController) {
 
                 DashboardTilePng(
                     resId = R.drawable.ic_cleaning,
+                    count = null,
                     modifier = Modifier.weight(1f),
                     shape = RoundedCornerShape(18.dp),
                     borderColor = DashboardColors.Label
@@ -105,6 +111,7 @@ fun DashboardScreen(navController: NavHostController) {
             ) {
                 DashboardTilePng(
                     resId = R.drawable.ic_bills,
+                    count = null,
                     modifier = Modifier.weight(1f),
                     shape = RoundedCornerShape(18.dp),
                     borderColor = DashboardColors.Label
@@ -112,13 +119,13 @@ fun DashboardScreen(navController: NavHostController) {
 
                 DashboardTilePng(
                     resId = R.drawable.ic_appointments,
+                    count = null,
                     modifier = Modifier.weight(1f),
                     shape = RoundedCornerShape(18.dp),
                     borderColor = DashboardColors.Label
                 ) { navController.navigate("appointments") }
             }
 
-            // === full-width Contacts card ===
             FullWidthContactsTile(
                 text = "Contacts",
                 shape = RoundedCornerShape(18.dp),
@@ -128,10 +135,12 @@ fun DashboardScreen(navController: NavHostController) {
     }
 }
 
-/** Single square PNG card with strong elevation + visible border */
+
+/** Single square PNG card  */
 @Composable
 private fun DashboardTilePng(
     resId: Int,
+    count: Int? = null,
     modifier: Modifier = Modifier,
     shape: RoundedCornerShape,
     borderColor: androidx.compose.ui.graphics.Color,
@@ -147,22 +156,31 @@ private fun DashboardTilePng(
         color = DashboardColors.CardBackground,
         tonalElevation = 8.dp
     ) {
-        Box(
+        Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(20.dp),
-            contentAlignment = Alignment.Center
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
         ) {
             Image(
                 painter = painterResource(resId),
                 contentDescription = null,
-                modifier = Modifier
-                    .fillMaxSize(0.75f),  // fills more of the box
+                modifier = Modifier.fillMaxSize(0.6f),
                 contentScale = ContentScale.Fit
             )
+            if (count != null) {
+                Spacer(Modifier.height(6.dp))
+                Text(
+                    text = "$count item${if (count != 1) "s" + " in cart" else ""}",
+                    fontSize = 14.sp,
+                    color = DashboardColors.Icon
+                )
+            }
         }
     }
 }
+
 
 /** Contacts tile — text only, centered near top, strong elevation */
 @Composable

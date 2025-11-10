@@ -24,4 +24,7 @@ interface ShoppingItemDao {
     // Synchronous version of getAllItems (for API call)
     @Query("SELECT * FROM shopping_items")
     fun getAllItemsNow(): List<ShoppingItem>
+  
+    @Query("SELECT COUNT(*) FROM shopping_items")
+    fun getCount(): Flow<Int>
 }
