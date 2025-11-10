@@ -20,4 +20,7 @@ interface ShoppingItemDao {
 
     @Query("DELETE FROM shopping_items WHERE isChecked = 1")
     suspend fun deleteChecked()
+
+    @Query("SELECT COUNT(*) FROM shopping_items")
+    fun getCount(): Flow<Int>
 }
