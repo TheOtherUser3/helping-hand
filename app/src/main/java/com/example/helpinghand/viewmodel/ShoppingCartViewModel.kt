@@ -5,7 +5,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.room.Room
 import com.example.helpinghand.data.database.AppDatabase
-import com.example.helpinghand.data.entity.ShoppingItem
+import com.example.helpinghand.data.model.ShoppingItem
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.stateIn
