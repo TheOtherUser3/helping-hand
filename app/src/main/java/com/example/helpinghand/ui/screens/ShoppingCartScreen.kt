@@ -1,7 +1,9 @@
 package com.example.helpinghand.ui.screens
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -32,6 +34,12 @@ import com.example.helpinghand.ui.theme.ShoppingColors as C
 import androidx.compose.material.icons.filled.RestaurantMenu
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
+import coil.compose.rememberAsyncImagePainter
 
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -141,7 +149,6 @@ fun ShoppingCartScreen(
                 // Generate Meals button
                 IconButton(onClick = {
                     mealsViewModel.fetchMealsFromCheckedItems()
-                    navController.navigate("meals")
                 }) {
                     Icon(
                         imageVector = Icons.Filled.RestaurantMenu,
@@ -178,39 +185,97 @@ fun ShoppingCartScreen(
                 }
             }
 
-            // --- Bottom Placeholder Section ---
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .background(C.Background)
-            ) {
-                Surface(color = C.Primary.copy(alpha = 0.12f)) {
-                    Text(
-                        "Suggested Recipes",
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp, vertical = 8.dp),
-                        color = C.OnBackground,
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.Medium
-                    )
-                }
-                Row(
+            // --- Suggested Recipes Section ---
+            val meals by mealsViewModel.meals.collectAsState()
+            var currentMealIndex by remember { mutableStateOf(0) }
+
+            if (meals.isNotEmpty()) {
+                val currentMeal = meals[currentMealIndex % meals.size]
+                val nextMeal = meals[(currentMealIndex + 1) % meals.size]
+
+                Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(16.dp),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        .background(C.Background)
                 ) {
-                    PlaceholderCard(
+                    // Header
+                    Surface(color = C.Primary.copy(alpha = 0.12f)) {
+                        Text(
+                            "Suggested Recipes",
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp, vertical = 8.dp),
+                            color = C.OnBackground,
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
+
+                    // Row of large + small cards
+                    Row(
                         modifier = Modifier
-                            .weight(1f)
-                            .height(120.dp)
-                    )
-                    PlaceholderCard(
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        // Large current meal card
+                        SuggestedMealCard(
+                            meal = currentMeal,
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(160.dp)
+                        )
+
+                        // Small preview card (image only)
+                        SuggestedMealCard(
+                            meal = nextMeal,
+                            modifier = Modifier
+                                .width(100.dp)
+                                .height(160.dp),
+                            showTitle = false,
+                            onClick = {
+                                currentMealIndex = (currentMealIndex + 1) % meals.size
+                            }
+                        )
+                    }
+                }
+            }
+            else {
+                // Fallback if no meals loaded yet
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(C.Background)
+                ) {
+                    Surface(color = C.Primary.copy(alpha = 0.12f)) {
+                        Text(
+                            "Suggested Recipes",
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp, vertical = 8.dp),
+                            color = C.OnBackground,
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
+                    Row(
                         modifier = Modifier
-                            .width(56.dp)
-                            .height(120.dp)
-                    )
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        PlaceholderCard(
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(120.dp)
+                        )
+                        PlaceholderCard(
+                            modifier = Modifier
+                                .width(56.dp)
+                                .height(120.dp)
+                        )
+                    }
                 }
             }
         }
@@ -281,3 +346,62 @@ private fun PlaceholderCard(modifier: Modifier) {
         border = BorderStroke(1.5.dp, C.Primary.copy(alpha = 0.6f))
     ) {}
 }
+
+@Composable
+private fun SuggestedMealCard(
+    meal: com.example.helpinghand.data.model.Meal,
+    modifier: Modifier = Modifier,
+    showTitle: Boolean = true,
+    onClick: (() -> Unit)? = null
+) {
+    Surface(
+        modifier = modifier
+            .shadow(6.dp, RoundedCornerShape(18.dp), clip = false)
+            .then(if (onClick != null) Modifier.clickable { onClick() } else Modifier),
+        shape = RoundedCornerShape(18.dp),
+        color = C.Surface,
+        tonalElevation = 4.dp
+    ) {
+        Box(
+            modifier = Modifier.fillMaxSize(),
+            contentAlignment = Alignment.BottomCenter
+        ) {
+            // Meal image
+            Image(
+                painter = rememberAsyncImagePainter(meal.imageUrl),
+                contentDescription = meal.title,
+                modifier = Modifier
+                    .fillMaxSize()
+                    .clip(RoundedCornerShape(18.dp)),
+                contentScale = ContentScale.Crop
+            )
+
+            // Title overlay (only for big card)
+            if (showTitle) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(
+                            Brush.verticalGradient(
+                                colors = listOf(Color.Transparent, Color.Black.copy(alpha = 0.6f))
+                            ),
+                            shape = RoundedCornerShape(bottomStart = 18.dp, bottomEnd = 18.dp)
+                        )
+                        .padding(vertical = 6.dp, horizontal = 12.dp),
+                    contentAlignment = Alignment.BottomStart
+                ) {
+                    Text(
+                        text = meal.title,
+                        color = Color.White,
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+            }
+        }
+    }
+}
+
+
