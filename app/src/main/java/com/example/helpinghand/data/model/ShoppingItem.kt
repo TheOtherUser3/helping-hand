@@ -1,4 +1,4 @@
-package com.example.helpinghand.data.entity
+package com.example.helpinghand.data.model
 
 import androidx.room.Entity
 import androidx.room.PrimaryKey

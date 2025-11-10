@@ -24,16 +24,23 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
-import com.example.helpinghand.data.entity.ShoppingItem
+import com.example.helpinghand.data.model.ShoppingItem
 import com.example.helpinghand.ui.viewmodel.ShoppingCartViewModel
+import com.example.helpinghand.viewmodel.MealsViewModel
 import com.example.helpinghand.ui.theme.ShoppingColors as C
+import androidx.compose.material.icons.filled.RestaurantMenu
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Add
+
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ShoppingCartScreen(navController: NavHostController) {
-    val viewModel: ShoppingCartViewModel = viewModel()
+fun ShoppingCartScreen(
+    navController: NavHostController,
+    viewModel: ShoppingCartViewModel,
+    mealsViewModel: MealsViewModel
+) {
     val items by viewModel.items.collectAsState()
 
     var showDialog by remember { mutableStateOf(false) }
@@ -45,7 +52,6 @@ fun ShoppingCartScreen(navController: NavHostController) {
                 .fillMaxSize()
                 .padding(inner)
         ) {
-            // --- Top App Bar ---
             // --- Top App Bar ---
             TopAppBar(
                 navigationIcon = {
@@ -84,20 +90,34 @@ fun ShoppingCartScreen(navController: NavHostController) {
 
 
             // --- Title Row ---
-            Row(
+            Box(
                 modifier = Modifier
                     .fillMaxWidth()
                     .background(C.SurfaceVariant)
-                    .padding(horizontal = 16.dp, vertical = 8.dp),
-                verticalAlignment = Alignment.CenterVertically
+                    .height(56.dp)
             ) {
-                Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.Center) {
-                    Text("Shopping List", color = C.Primary, fontSize = 20.sp)
-                }
-                IconButton(onClick = { navController.navigate("meals") }) {
-                    Icon(Icons.Filled.ChevronRight, null, tint = C.OnBackground)
+
+                // Centered text
+                Text(
+                    text = "Shopping Cart",
+                    color = C.Primary,
+                    fontSize = 20.sp,
+                    modifier = Modifier.align(Alignment.Center)
+                )
+
+                // Right-aligned arrow
+                IconButton(
+                    onClick = { navController.navigate("meals") },
+                    modifier = Modifier.align(Alignment.CenterEnd)
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.ChevronRight,
+                        contentDescription = "Go Back",
+                        tint = C.OnBackground
+                    )
                 }
             }
+
 
             // --- Controls Row ---
             Row(
@@ -115,7 +135,22 @@ fun ShoppingCartScreen(navController: NavHostController) {
                     },
                     colors = AssistChipDefaults.assistChipColors(containerColor = C.Surface)
                 )
+
                 Spacer(Modifier.weight(1f))
+
+                // Generate Meals button
+                IconButton(onClick = {
+                    mealsViewModel.fetchMealsFromCheckedItems()
+                    navController.navigate("meals")
+                }) {
+                    Icon(
+                        imageVector = Icons.Filled.RestaurantMenu,
+                        contentDescription = "Generate Meals",
+                        tint = C.OnBackground
+                    )
+                }
+
+                // delete button
                 IconButton(onClick = { viewModel.deleteChecked() }) {
                     Icon(Icons.Filled.Delete, contentDescription = "Delete Checked", tint = C.OnBackground)
                 }
