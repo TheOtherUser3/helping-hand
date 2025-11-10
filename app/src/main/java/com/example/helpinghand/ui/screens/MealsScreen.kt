@@ -184,43 +184,34 @@ fun MealCard(meal: Meal) {
     Surface(
         modifier = Modifier
             .fillMaxWidth()
-            .wrapContentHeight(), // 💥 dynamic height instead of fixed!
+            .height(140.dp),
         shape = RoundedCornerShape(16.dp),
         color = C.Surface,
-        tonalElevation = 3.dp,
-        shadowElevation = 4.dp
+        tonalElevation = 3.dp
     ) {
         Row(
             modifier = Modifier
-                .fillMaxWidth()
+                .fillMaxSize()
                 .padding(12.dp),
-            verticalAlignment = Alignment.Top // ensures tall text expands down
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            // 🖼 Recipe image
+            // Recipe image
             Image(
                 painter = rememberAsyncImagePainter(meal.imageUrl),
                 contentDescription = meal.title,
                 modifier = Modifier
                     .size(120.dp)
-                    .clip(RoundedCornerShape(12.dp))
                     .padding(end = 12.dp),
                 contentScale = ContentScale.Crop
             )
 
-            // 📝 Recipe text (auto-expanding column)
+            // Recipe text
             Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = 4.dp),
-                verticalArrangement = Arrangement.Top
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.Center
             ) {
-                Text(
-                    meal.title,
-                    fontSize = 18.sp,
-                    color = C.OnBackground
-                )
+                Text(meal.title, fontSize = 18.sp, color = C.OnBackground)
                 Spacer(Modifier.height(6.dp))
-
                 if (meal.usedIngredients.isNotEmpty()) {
                     Text(
                         text = "Uses: ${meal.usedIngredients.joinToString(", ")}",
@@ -228,9 +219,7 @@ fun MealCard(meal: Meal) {
                         color = C.OnSurfaceVariant
                     )
                 }
-
                 if (meal.missedIngredients.isNotEmpty()) {
-                    Spacer(Modifier.height(4.dp))
                     Text(
                         text = "Missing: ${meal.missedIngredients.joinToString(", ")}",
                         fontSize = 13.sp,
