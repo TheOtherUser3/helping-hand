@@ -1,0 +1,36 @@
+[33mf1186ed[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mdev[m[33m, [m[1;31morigin/dev[m[33m)[m HEAD@{0}: pull: Fast-forward
+[33m37b831e[m HEAD@{1}: checkout: moving from feature/shoppinglist to dev
+[33m8c08073[m[33m ([m[1;32mfeature/shoppinglist[m[33m)[m HEAD@{2}: commit: Fixed weird git glitch
+[33m739c8aa[m HEAD@{3}: commit: Added functionality to the suggested recipes section. Also made the meal cards size dynamically so text doesn't go outside of the card
+[33m9221806[m HEAD@{4}: checkout: moving from dev to feature/shoppinglist
+[33m37b831e[m HEAD@{5}: reset: moving to HEAD
+[33m37b831e[m HEAD@{6}: pull: Fast-forward
+[33m5801780[m HEAD@{7}: checkout: moving from feature/meals to dev
+[33m4c8a4cb[m[33m ([m[1;32mfeature/meals[m[33m)[m HEAD@{8}: commit: Added functionality to Mia's figma UI code for meals screen. Successfully uses API now to bring up meals. Also moved ViewModels to be global by initializing them in Navigation, so as not to lose state while the app is in use.
+[33m5801780[m HEAD@{9}: checkout: moving from dev to feature/meals
+[33m5801780[m HEAD@{10}: pull: Fast-forward
+[33m085563e[m HEAD@{11}: checkout: moving from feature/shoppinglist to dev
+[33m9221806[m HEAD@{12}: commit: Added back button to dashboard on shopping list screen
+[33mb999d55[m HEAD@{13}: checkout: moving from feature/homepage-ui to feature/shoppinglist
+[33ma0c453a[m[33m ([m[1;31morigin/feature/homepage-ui[m[33m, [m[1;32mfeature/homepage-ui[m[33m)[m HEAD@{14}: commit: Food widget now dynamically displays the total number of items in the shopping cart
+[33mb999d55[m HEAD@{15}: pull origin feature/shoppinglist: Fast-forward
+[33m085563e[m HEAD@{16}: pull origin dev: Fast-forward
+[33m7be1418[m HEAD@{17}: checkout: moving from feature/shoppinglist to feature/homepage-ui
+[33mb999d55[m HEAD@{18}: commit: Added backend for Shopping Cart (Room database, automatic Flow recomposition) + refactored code into MVVM architecture
+[33m085563e[m HEAD@{19}: checkout: moving from dev to feature/shoppinglist
+[33m085563e[m HEAD@{20}: pull: Fast-forward
+[33mf076764[m HEAD@{21}: checkout: moving from feature/homepage-ui to dev
+[33m7be1418[m HEAD@{22}: commit: Improved coloring on Dashboard
+[33mc4c6a7d[m HEAD@{23}: commit: Fixed homepage UI. Have a functional version now
+[33m6ae7908[m HEAD@{24}: commit: Added dashboard and dynamic colors, along with images for dashboard widgets
+[33mf076764[m HEAD@{25}: merge origin/dev: Fast-forward
+[33md1cab0e[m HEAD@{26}: checkout: moving from feature/homepage-ui to feature/homepage-ui
+[33md1cab0e[m HEAD@{27}: checkout: moving from dev to feature/homepage-ui
+[33mf076764[m HEAD@{28}: pull origin dev: Fast-forward
+[33mb9ef4fc[m HEAD@{29}: checkout: moving from feature/navigation to dev
+[33mdd1b0ae[m[33m ([m[1;31morigin/feature/navigation[m[33m, [m[1;32mfeature/navigation[m[33m)[m HEAD@{30}: commit: Set up basic navigation controller
+[33mb9ef4fc[m HEAD@{31}: checkout: moving from dev to feature/navigation
+[33mb9ef4fc[m HEAD@{32}: pull origin dev: Fast-forward
+[33md1cab0e[m HEAD@{33}: checkout: moving from filesetup to dev
+[33m07f980f[m[33m ([m[1;31morigin/filesetup[m[33m, [m[1;32mfilesetup[m[33m)[m HEAD@{34}: commit: Setup initial file structure (ui + viewmodel + data folders)
+[33md1cab0e[m HEAD@{35}: checkout: moving from main to filesetup
