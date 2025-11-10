@@ -184,7 +184,7 @@ fun MealCard(meal: Meal) {
     Surface(
         modifier = Modifier
             .fillMaxWidth()
-            .wrapContentHeight(), // 💥 dynamic height instead of fixed!
+            .wrapContentHeight(),
         shape = RoundedCornerShape(16.dp),
         color = C.Surface,
         tonalElevation = 3.dp,
@@ -194,7 +194,7 @@ fun MealCard(meal: Meal) {
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(12.dp),
-            verticalAlignment = Alignment.Top // ensures tall text expands down
+            verticalAlignment = Alignment.Top
         ) {
             // 🖼 Recipe image
             Image(
