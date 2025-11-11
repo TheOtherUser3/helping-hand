@@ -1,7 +1,9 @@
 package com.example.helpinghand.ui.screens
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -9,6 +11,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Person
@@ -23,16 +26,29 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
-import com.example.helpinghand.data.entity.ShoppingItem
+import com.example.helpinghand.data.model.ShoppingItem
 import com.example.helpinghand.ui.viewmodel.ShoppingCartViewModel
+import com.example.helpinghand.viewmodel.MealsViewModel
 import com.example.helpinghand.ui.theme.ShoppingColors as C
+import androidx.compose.material.icons.filled.RestaurantMenu
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
+import coil.compose.rememberAsyncImagePainter
+
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ShoppingCartScreen(navController: NavHostController) {
-    val viewModel: ShoppingCartViewModel = viewModel()
+fun ShoppingCartScreen(
+    navController: NavHostController,
+    viewModel: ShoppingCartViewModel,
+    mealsViewModel: MealsViewModel
+) {
     val items by viewModel.items.collectAsState()
 
     var showDialog by remember { mutableStateOf(false) }
@@ -46,6 +62,15 @@ fun ShoppingCartScreen(navController: NavHostController) {
         ) {
             // --- Top App Bar ---
             TopAppBar(
+                navigationIcon = {
+                    IconButton(onClick = { navController.popBackStack() }) {
+                        Icon(
+                            imageVector = Icons.Default.ArrowBack,
+                            contentDescription = "Back to Dashboard",
+                            tint = C.OnBackground
+                        )
+                    }
+                },
                 title = {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
@@ -71,21 +96,36 @@ fun ShoppingCartScreen(navController: NavHostController) {
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = C.Background)
             )
 
+
             // --- Title Row ---
-            Row(
+            Box(
                 modifier = Modifier
                     .fillMaxWidth()
                     .background(C.SurfaceVariant)
-                    .padding(horizontal = 16.dp, vertical = 8.dp),
-                verticalAlignment = Alignment.CenterVertically
+                    .height(56.dp)
             ) {
-                Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.Center) {
-                    Text("Shopping List", color = C.Primary, fontSize = 20.sp)
-                }
-                IconButton(onClick = { navController.navigate("meals") }) {
-                    Icon(Icons.Filled.ChevronRight, null, tint = C.OnBackground)
+
+                // Centered text
+                Text(
+                    text = "Shopping Cart",
+                    color = C.Primary,
+                    fontSize = 20.sp,
+                    modifier = Modifier.align(Alignment.Center)
+                )
+
+                // Right-aligned arrow
+                IconButton(
+                    onClick = { navController.navigate("meals") },
+                    modifier = Modifier.align(Alignment.CenterEnd)
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.ChevronRight,
+                        contentDescription = "Go Back",
+                        tint = C.OnBackground
+                    )
                 }
             }
+
 
             // --- Controls Row ---
             Row(
@@ -103,7 +143,21 @@ fun ShoppingCartScreen(navController: NavHostController) {
                     },
                     colors = AssistChipDefaults.assistChipColors(containerColor = C.Surface)
                 )
+
                 Spacer(Modifier.weight(1f))
+
+                // Generate Meals button
+                IconButton(onClick = {
+                    mealsViewModel.fetchMealsFromCheckedItems()
+                }) {
+                    Icon(
+                        imageVector = Icons.Filled.RestaurantMenu,
+                        contentDescription = "Generate Meals",
+                        tint = C.OnBackground
+                    )
+                }
+
+                // delete button
                 IconButton(onClick = { viewModel.deleteChecked() }) {
                     Icon(Icons.Filled.Delete, contentDescription = "Delete Checked", tint = C.OnBackground)
                 }
@@ -131,41 +185,98 @@ fun ShoppingCartScreen(navController: NavHostController) {
                 }
             }
 
-            // --- Bottom Placeholder Section ---
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .background(C.Background)
-            ) {
-                Surface(color = C.Primary.copy(alpha = 0.12f)) {
-                    Text(
-                        "Suggested Recipes",
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp, vertical = 8.dp),
-                        color = C.OnBackground,
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.Medium
-                    )
-                }
-                Row(
+            // --- Suggested Recipes Section ---
+            val meals by mealsViewModel.meals.collectAsState()
+            var currentMealIndex by remember { mutableStateOf(0) }
+
+            if (meals.isNotEmpty()) {
+                val currentMeal = meals[currentMealIndex % meals.size]
+                val nextMeal = meals[(currentMealIndex + 1) % meals.size]
+
+                Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(16.dp),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        .background(C.Background)
                 ) {
-                    PlaceholderCard(
+                    // Header
+                    Surface(color = C.Primary.copy(alpha = 0.12f)) {
+                        Text(
+                            "Suggested Recipes",
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp, vertical = 8.dp),
+                            color = C.OnBackground,
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
+
+                    // Row of large + small cards
+                    Row(
                         modifier = Modifier
-                            .weight(1f)
-                            .height(120.dp)
-                    )
-                    PlaceholderCard(
-                        modifier = Modifier
-                            .width(56.dp)
-                            .height(120.dp)
-                    )
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        // Large current meal card
+                        SuggestedMealCard(
+                            meal = currentMeal,
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(160.dp)
+                        )
+
+                        // Small preview card (image only)
+                        SuggestedMealCard(
+                            meal = nextMeal,
+                            modifier = Modifier
+                                .width(100.dp)
+                                .height(160.dp),
+                            showTitle = false,
+                            onClick = {
+                                currentMealIndex = (currentMealIndex + 1) % meals.size
+                            }
+                        )
+                    }
                 }
-                GestureBar()
+            }
+            else {
+                // Fallback if no meals loaded yet
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(C.Background)
+                ) {
+                    Surface(color = C.Primary.copy(alpha = 0.12f)) {
+                        Text(
+                            "Suggested Recipes",
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp, vertical = 8.dp),
+                            color = C.OnBackground,
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        PlaceholderCard(
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(120.dp)
+                        )
+                        PlaceholderCard(
+                            modifier = Modifier
+                                .width(56.dp)
+                                .height(120.dp)
+                        )
+                    }
+                }
             }
         }
 
@@ -237,20 +348,60 @@ private fun PlaceholderCard(modifier: Modifier) {
 }
 
 @Composable
-private fun GestureBar() {
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(28.dp)
-            .background(C.GestureBar),
-        contentAlignment = Alignment.Center
+private fun SuggestedMealCard(
+    meal: com.example.helpinghand.data.model.Meal,
+    modifier: Modifier = Modifier,
+    showTitle: Boolean = true,
+    onClick: (() -> Unit)? = null
+) {
+    Surface(
+        modifier = modifier
+            .shadow(6.dp, RoundedCornerShape(18.dp), clip = false)
+            .then(if (onClick != null) Modifier.clickable { onClick() } else Modifier),
+        shape = RoundedCornerShape(18.dp),
+        color = C.Surface,
+        tonalElevation = 4.dp
     ) {
         Box(
-            modifier = Modifier
-                .width(56.dp)
-                .height(4.dp)
-                .clip(RoundedCornerShape(2.dp))
-                .background(C.OnBackground)
-        )
+            modifier = Modifier.fillMaxSize(),
+            contentAlignment = Alignment.BottomCenter
+        ) {
+            // Meal image
+            Image(
+                painter = rememberAsyncImagePainter(meal.imageUrl),
+                contentDescription = meal.title,
+                modifier = Modifier
+                    .fillMaxSize()
+                    .clip(RoundedCornerShape(18.dp)),
+                contentScale = ContentScale.Crop
+            )
+
+            // Title overlay (only for big card)
+            if (showTitle) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(
+                            Brush.verticalGradient(
+                                colors = listOf(Color.Transparent, Color.Black.copy(alpha = 0.6f))
+                            ),
+                            shape = RoundedCornerShape(bottomStart = 18.dp, bottomEnd = 18.dp)
+                        )
+                        .padding(vertical = 6.dp, horizontal = 12.dp),
+                    contentAlignment = Alignment.BottomStart
+                ) {
+                    Text(
+                        text = meal.title,
+                        color = Color.White,
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+            }
+        }
     }
 }
+
+

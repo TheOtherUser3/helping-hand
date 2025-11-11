@@ -1,9 +1,18 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
     id("org.jetbrains.kotlin.kapt")
 }
+val localProps = Properties()
+val localPropsFile = rootProject.file("local.properties")
+if (localPropsFile.exists()) {
+    localProps.load(localPropsFile.inputStream())
+}
+
+val spoonacularKey: String = localProps.getProperty("SPOONACULAR_API_KEY", "")
 
 android {
     namespace = "com.example.helpinghand"
@@ -17,6 +26,8 @@ android {
         versionName = "1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+
+        buildConfigField("String", "SPOONACULAR_API_KEY", "\"$spoonacularKey\"")
     }
 
     buildTypes {
@@ -37,12 +48,14 @@ android {
     }
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 }
 
 kapt {
     correctErrorTypes = true
 }
+
 
 dependencies {
 
@@ -70,4 +83,6 @@ dependencies {
     implementation("androidx.room:room-runtime:2.6.1")
     implementation("androidx.room:room-ktx:2.6.1")
     kapt("androidx.room:room-compiler:2.6.1")
+    implementation("io.coil-kt:coil-compose:2.6.0")
 }
+
