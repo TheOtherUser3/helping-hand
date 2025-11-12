@@ -71,5 +71,9 @@ Keeping your home in order shouldn’t feel like a full-time job — everyone co
 
 ---
 
+UPDATE 11/11
+- To build, add Spoonacular API key into the local.properties
+- Current features include the Shopping Cart fully functioning widget and the appearance of the dashboard 
+
 **Signed,**  
 *The Mia Dawgs*
