@@ -32,3 +32,13 @@ object ShoppingColors {
     val SurfaceVariant = Color(0xFFFEF7FF)
     val GestureBar = Color(0xFFF3EDF7)
 }
+
+object AppColors {
+    val Background = Color(0xFFEADDFF)
+    val Primary = Color(0xFF6750A4)
+    val OnBackground = Color(0xFF1D1B20)
+    val OnSurfaceVariant = Color(0xFF49454F)
+    val Surface = Color(0xFFFFFFFF)
+    val SurfaceVariant = Color(0xFFFEF7FF)
+    val GestureBar = Color(0xFFF3EDF7)
+}
