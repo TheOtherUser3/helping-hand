@@ -1,30 +1,24 @@
 package com.example.helpinghand.viewmodel
 
-import android.app.Application
-import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
-import androidx.room.Room
 import com.example.helpinghand.BuildConfig
-import com.example.helpinghand.data.database.AppDatabase
+import com.example.helpinghand.data.dao.ShoppingItemDao
 import com.example.helpinghand.data.model.Ingredient
-import com.example.helpinghand.data.network.NetworkModule
 import com.example.helpinghand.data.model.Meal
 import com.example.helpinghand.data.model.ShoppingItem
+import com.example.helpinghand.data.network.NetworkModule
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
 
-class MealsViewModel(application: Application) : AndroidViewModel(application) {
+class MealsViewModel(
+    private val dao: ShoppingItemDao
+) : ViewModel() {
 
-    private val db = Room.databaseBuilder(
-        application,
-        AppDatabase::class.java,
-        "helping_hand_db"
-    ).build()
-
-    private val dao = db.shoppingItemDao()
     private val api = NetworkModule.api
     private val apiKey = BuildConfig.SPOONACULAR_API_KEY
 
@@ -34,6 +28,7 @@ class MealsViewModel(application: Application) : AndroidViewModel(application) {
     private val _isLoading = MutableStateFlow(false)
     val isLoading: StateFlow<Boolean> = _isLoading
 
+    // SAME implementation as your original, just without building Room in here
     fun fetchMealsFromCheckedItems() {
         viewModelScope.launch(Dispatchers.IO) {
             try {
@@ -50,20 +45,22 @@ class MealsViewModel(application: Application) : AndroidViewModel(application) {
 
                 val ingredients = checkedItems.joinToString(",")
 
-                // Retrofit call
                 val result = api.getMealsByIngredients(
                     ingredients = ingredients,
                     apiKey = apiKey
                 )
 
-                // Convert ingredient objects to just names for display
                 val mapped = result.map { meal ->
                     Meal(
                         id = meal.id,
                         title = meal.title,
                         imageUrl = meal.imageUrl,
-                        usedIngredients = meal.usedIngredients.map { it.name }.map { Ingredient(it) },
-                        missedIngredients = meal.missedIngredients.map { it.name }.map { Ingredient(it) }
+                        usedIngredients = meal.usedIngredients
+                            .map { it.name }
+                            .map { Ingredient(it) },
+                        missedIngredients = meal.missedIngredients
+                            .map { it.name }
+                            .map { Ingredient(it) }
                     )
                 }
 
@@ -77,15 +74,14 @@ class MealsViewModel(application: Application) : AndroidViewModel(application) {
             }
         }
     }
+
     fun addMissingIngredients(meal: Meal) {
         viewModelScope.launch(Dispatchers.IO) {
             try {
-                // 1. Get current items in the shopping list
                 val existingItems = dao.getAllItemsNow()
                     .map { it.text.trim().lowercase() }
                     .toSet()
 
-                // 2. Build list of new ShoppingItem entries that are not already present
                 val newItems = meal.missedIngredients
                     .map { it.name.trim() }
                     .filter { it.isNotEmpty() }
@@ -101,7 +97,6 @@ class MealsViewModel(application: Application) : AndroidViewModel(application) {
                     dao.insertItems(newItems)
                 }
 
-                // 3. Update the local meal state so UI moves missing -> used
                 _meals.update { currentList ->
                     currentList.map {
                         if (it.id == meal.id) {
@@ -119,5 +114,16 @@ class MealsViewModel(application: Application) : AndroidViewModel(application) {
             }
         }
     }
+}
 
+class MealsViewModelFactory(
+    private val dao: ShoppingItemDao
+) : ViewModelProvider.Factory {
+    override fun <T : ViewModel> create(modelClass: Class<T>): T {
+        if (modelClass.isAssignableFrom(MealsViewModel::class.java)) {
+            @Suppress("UNCHECKED_CAST")
+            return MealsViewModel(dao) as T
+        }
+        throw IllegalArgumentException("Unknown ViewModel class: ${modelClass.name}")
+    }
 }

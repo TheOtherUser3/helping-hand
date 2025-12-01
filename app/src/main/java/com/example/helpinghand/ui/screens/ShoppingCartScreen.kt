@@ -28,7 +28,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavHostController
 import com.example.helpinghand.data.model.ShoppingItem
-import com.example.helpinghand.ui.viewmodel.ShoppingCartViewModel
+import com.example.helpinghand.viewmodel.ShoppingCartViewModel
 import com.example.helpinghand.viewmodel.MealsViewModel
 import com.example.helpinghand.ui.theme.ShoppingColors as C
 import androidx.compose.material.icons.filled.RestaurantMenu

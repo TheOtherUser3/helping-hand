@@ -1,36 +1,50 @@
 package com.example.helpinghand.ui.screens
 
+import android.os.Build
+import androidx.annotation.RequiresApi
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
 import com.example.helpinghand.R
 import com.example.helpinghand.ui.theme.DashboardColors
-import com.example.helpinghand.ui.viewmodel.DashboardViewModel
+import com.example.helpinghand.viewmodel.DashboardViewModel
 
+@RequiresApi(Build.VERSION_CODES.O)
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun DashboardScreen(navController: NavHostController, viewModel: DashboardViewModel = viewModel()) {
+fun DashboardScreen(
+    navController: NavHostController,
+    viewModel: DashboardViewModel
+) {
     val itemCount by viewModel.itemCount.collectAsState()
+    val nextDueReminder by viewModel.nextDueReminder.collectAsState()
+    val daysUntilNextDue by viewModel.daysUntilNextDue.collectAsState()
+
+
+    val cleaningStatus = daysUntilNextDue?.let { days ->
+        when {
+            days < 0 -> "Overdue!"
+            days == 0 -> "Due Today!"
+            else -> "$days days until next due"
+        }
+    } ?: "No reminders"
 
     Scaffold(
         containerColor = DashboardColors.Dashboard,
@@ -91,6 +105,7 @@ fun DashboardScreen(navController: NavHostController, viewModel: DashboardViewMo
                 DashboardTilePng(
                     resId = R.drawable.ic_shopping,
                     count = itemCount,
+                    extraText = null,
                     modifier = Modifier.weight(1f),
                     shape = RoundedCornerShape(18.dp),
                     borderColor = DashboardColors.Label
@@ -99,6 +114,7 @@ fun DashboardScreen(navController: NavHostController, viewModel: DashboardViewMo
                 DashboardTilePng(
                     resId = R.drawable.ic_cleaning,
                     count = null,
+                    extraText = cleaningStatus,
                     modifier = Modifier.weight(1f),
                     shape = RoundedCornerShape(18.dp),
                     borderColor = DashboardColors.Label
@@ -112,6 +128,7 @@ fun DashboardScreen(navController: NavHostController, viewModel: DashboardViewMo
                 DashboardTilePng(
                     resId = R.drawable.ic_bills,
                     count = null,
+                    extraText = null,
                     modifier = Modifier.weight(1f),
                     shape = RoundedCornerShape(18.dp),
                     borderColor = DashboardColors.Label
@@ -120,6 +137,7 @@ fun DashboardScreen(navController: NavHostController, viewModel: DashboardViewMo
                 DashboardTilePng(
                     resId = R.drawable.ic_appointments,
                     count = null,
+                    extraText = null,
                     modifier = Modifier.weight(1f),
                     shape = RoundedCornerShape(18.dp),
                     borderColor = DashboardColors.Label
@@ -136,14 +154,14 @@ fun DashboardScreen(navController: NavHostController, viewModel: DashboardViewMo
 }
 
 
-/** Single square PNG card  */
 @Composable
 private fun DashboardTilePng(
     resId: Int,
     count: Int? = null,
+    extraText: String? = null,
     modifier: Modifier = Modifier,
     shape: RoundedCornerShape,
-    borderColor: androidx.compose.ui.graphics.Color,
+    borderColor: Color,
     onClick: () -> Unit
 ) {
     Surface(
@@ -169,12 +187,22 @@ private fun DashboardTilePng(
                 modifier = Modifier.fillMaxSize(0.6f),
                 contentScale = ContentScale.Fit
             )
+
             if (count != null) {
                 Spacer(Modifier.height(6.dp))
                 Text(
-                    text = "$count item${if (count != 1) "s" + " in cart" else ""}",
+                    text = "$count item${if (count != 1) "s" else ""} in cart",
                     fontSize = 14.sp,
                     color = DashboardColors.Icon
+                )
+            }
+
+            if (!extraText.isNullOrBlank()) {
+                Spacer(Modifier.height(6.dp))
+                Text(
+                    text = extraText,
+                    fontSize = 14.sp,
+                    color = DashboardColors.Headline
                 )
             }
         }
@@ -182,12 +210,11 @@ private fun DashboardTilePng(
 }
 
 
-/** Contacts tile — text only, centered near top, strong elevation */
 @Composable
 private fun FullWidthContactsTile(
     text: String,
     shape: RoundedCornerShape,
-    borderColor: androidx.compose.ui.graphics.Color,
+    borderColor: Color,
     onClick: () -> Unit
 ) {
     Surface(
