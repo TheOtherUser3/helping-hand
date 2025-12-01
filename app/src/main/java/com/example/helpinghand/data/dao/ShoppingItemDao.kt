@@ -27,4 +27,7 @@ interface ShoppingItemDao {
   
     @Query("SELECT COUNT(*) FROM shopping_items")
     fun getCount(): Flow<Int>
+
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    suspend fun insertItems(items: List<ShoppingItem>)
 }

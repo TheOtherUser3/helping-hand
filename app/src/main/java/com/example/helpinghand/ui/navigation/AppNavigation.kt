@@ -20,7 +20,6 @@ fun AppNavigation() {
     val mealsViewModel: MealsViewModel = viewModel()
     NavHost(navController = navController, startDestination = "dashboard") {
         composable("dashboard") { DashboardScreen(navController) }
-
         composable("shopping") { ShoppingCartScreen(navController, shoppingCartViewModel, mealsViewModel) }
         composable("meals") { MealsScreen(navController, mealsViewModel) }
         composable("cleaning") { Text("Cleaning Screen Coming Soon") }
