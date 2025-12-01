@@ -34,4 +34,6 @@ class ShoppingCartViewModel(application: Application) : AndroidViewModel(applica
     fun deleteChecked() = viewModelScope.launch {
         dao.deleteChecked()
     }
+
+
 }

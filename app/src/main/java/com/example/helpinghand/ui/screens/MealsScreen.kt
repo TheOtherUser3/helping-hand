@@ -1,7 +1,10 @@
 package com.example.helpinghand.ui.screens
 
+import android.content.Intent
+import android.net.Uri
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -10,7 +13,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.ChevronLeft
-import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
@@ -39,18 +41,30 @@ fun MealsScreen(
     val meals by viewModel.meals.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
 
-    // Local state for the search query
+    // Search
     var searchQuery by remember { mutableStateOf("") }
 
-    // Filter meals by title or ingredients
     val filteredMeals = remember(meals, searchQuery) {
-        if (searchQuery.isBlank()) meals
-        else meals.filter { meal ->
-            meal.title.contains(searchQuery, ignoreCase = true) ||
-                    meal.usedIngredients.any { it.contains(searchQuery, ignoreCase = true) } ||
-                    meal.missedIngredients.any { it.contains(searchQuery, ignoreCase = true) }
+        if (searchQuery.isBlank()) {
+            meals
+        } else {
+            val query = searchQuery.trim()
+            meals.filter { meal ->
+                val titleMatch = meal.title.contains(query, ignoreCase = true)
+
+                val usedMatch = meal.usedIngredients.any { ingredient ->
+                    ingredient.name.contains(query, ignoreCase = true)
+                }
+
+                val missedMatch = meal.missedIngredients.any { ingredient ->
+                    ingredient.name.contains(query, ignoreCase = true)
+                }
+
+                titleMatch || usedMatch || missedMatch
+            }
         }
     }
+
 
     Scaffold(containerColor = C.Background) { paddingValues ->
         Column(
@@ -60,13 +74,15 @@ fun MealsScreen(
                 .background(C.Background)
         ) {
 
-            // --- Top bar  ---
+            // Top bar ---------------------------------------------------------
             TopAppBar(
                 navigationIcon = {
-                    IconButton(onClick = {
-                        navController.popBackStack()
-                        navController.popBackStack()
-                    }) {
+                    IconButton(
+                        onClick = {
+                            navController.popBackStack()
+                            navController.popBackStack()
+                        }
+                    ) {
                         Icon(
                             imageVector = Icons.Default.ArrowBack,
                             contentDescription = "Back to Dashboard",
@@ -99,7 +115,7 @@ fun MealsScreen(
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = C.Background)
             )
 
-            // --- Title Row ---
+            // Meals header row ---------------------------------------------------
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -112,7 +128,7 @@ fun MealsScreen(
                 ) {
                     Icon(
                         imageVector = Icons.Filled.ChevronLeft,
-                        contentDescription = "Go Back",
+                        contentDescription = "Back",
                         tint = C.OnBackground
                     )
                 }
@@ -124,7 +140,7 @@ fun MealsScreen(
                 )
             }
 
-            // --- Search Bar  ---
+            // Search bar --------------------------------------------------------
             OutlinedTextField(
                 value = searchQuery,
                 onValueChange = { searchQuery = it },
@@ -147,7 +163,7 @@ fun MealsScreen(
                 singleLine = true
             )
 
-            // --- Meal list region  ---
+            // Meal list ---------------------------------------------------------
             when {
                 isLoading -> {
                     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -169,7 +185,14 @@ fun MealsScreen(
                         verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
                         items(filteredMeals) { meal ->
-                            MealCard(meal)
+                            MealCard(
+                                meal = meal,
+                                onAddMissing = { viewModel.addMissingIngredients(meal) },
+                                onOpenRecipe = { url ->
+                                    val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
+                                    navController.context.startActivity(intent)
+                                }
+                            )
                         }
                     }
                 }
@@ -179,13 +202,22 @@ fun MealsScreen(
 }
 
 
+// ---------------------------------------------------------------------------
+// MEAL CARD
+// ---------------------------------------------------------------------------
+
 @Composable
-fun MealCard(meal: Meal) {
+fun MealCard(
+    meal: Meal,
+    onAddMissing: () -> Unit,
+    onOpenRecipe: (String) -> Unit
+) {
     Surface(
         modifier = Modifier
             .fillMaxWidth()
-            .wrapContentHeight(),
-        shape = RoundedCornerShape(16.dp),
+            .wrapContentHeight()
+            .clip(RoundedCornerShape(16.dp))
+            .clickable { onOpenRecipe(meal.recipeUrl) },
         color = C.Surface,
         tonalElevation = 3.dp,
         shadowElevation = 4.dp
@@ -196,7 +228,7 @@ fun MealCard(meal: Meal) {
                 .padding(12.dp),
             verticalAlignment = Alignment.Top
         ) {
-            // 🖼 Recipe image
+
             Image(
                 painter = rememberAsyncImagePainter(meal.imageUrl),
                 contentDescription = meal.title,
@@ -207,7 +239,6 @@ fun MealCard(meal: Meal) {
                 contentScale = ContentScale.Crop
             )
 
-            // 📝 Recipe text (auto-expanding column)
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -223,7 +254,8 @@ fun MealCard(meal: Meal) {
 
                 if (meal.usedIngredients.isNotEmpty()) {
                     Text(
-                        text = "Uses: ${meal.usedIngredients.joinToString(", ")}",
+                        text = "Uses: " +
+                                meal.usedIngredients.joinToString(", ") { it.name },
                         fontSize = 13.sp,
                         color = C.OnSurfaceVariant
                     )
@@ -232,12 +264,32 @@ fun MealCard(meal: Meal) {
                 if (meal.missedIngredients.isNotEmpty()) {
                     Spacer(Modifier.height(4.dp))
                     Text(
-                        text = "Missing: ${meal.missedIngredients.joinToString(", ")}",
+                        text = "Missing: " +
+                                meal.missedIngredients.joinToString(", ") { it.name },
                         fontSize = 13.sp,
                         color = C.OnSurfaceVariant
                     )
+                }
+
+                Spacer(Modifier.height(12.dp))
+
+                // Only show button if there are missing ingredients
+                if (meal.missedIngredients.isNotEmpty()) {
+                    Button(
+                        onClick = onAddMissing,
+                        modifier = Modifier.align(Alignment.End),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = C.Primary,
+                            contentColor = C.Surface
+                        ),
+                        shape = RoundedCornerShape(8.dp)
+                    ) {
+                        Text("Add Missing Ingredients")
+                    }
                 }
             }
         }
     }
 }
+
+
