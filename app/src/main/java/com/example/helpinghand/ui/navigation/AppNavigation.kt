@@ -24,6 +24,8 @@ import com.example.helpinghand.viewmodel.MealsViewModel
 import com.example.helpinghand.viewmodel.MealsViewModelFactory
 import com.example.helpinghand.viewmodel.CleaningReminderViewModel
 import com.example.helpinghand.viewmodel.CleaningReminderViewModelFactory
+import com.example.helpinghand.viewmodel.ContactsViewModel
+import com.example.helpinghand.viewmodel.ContactsViewModelFactory
 
 @RequiresApi(Build.VERSION_CODES.O)
 @Composable
@@ -49,6 +51,10 @@ fun AppNavigation() {
 
     val dashboardViewModel: DashboardViewModel = viewModel(
         factory = DashboardViewModelFactory(db.shoppingItemDao(), db.cleaningReminderDao())
+    )
+
+    val contactsViewModel: ContactsViewModel = viewModel(
+        factory = ContactsViewModelFactory(db.contactDao())
     )
 
 
@@ -85,7 +91,8 @@ fun AppNavigation() {
 
         composable("contacts") {
             ContactsScreen(
-                onNavigateBack = { navController.popBackStack() }
+                navController = navController,
+                viewModel = contactsViewModel
             )
         }
 
