@@ -18,6 +18,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -47,6 +48,7 @@ fun DashboardScreen(
     } ?: "No reminders"
 
     Scaffold(
+        modifier = Modifier.testTag("dashboard_screen"),
         containerColor = DashboardColors.Dashboard,
         topBar = {
             Column(
@@ -71,12 +73,14 @@ fun DashboardScreen(
                             Text(
                                 text = "Home",
                                 fontSize = 22.sp,
-                                color = DashboardColors.Headline
+                                color = DashboardColors.Headline,
+                                modifier = Modifier.testTag("dashboard_title")
                             )
                         }
                     },
                     actions = {
-                        IconButton(onClick = { navController.navigate("settings") }) {
+                        IconButton(onClick = { navController.navigate("settings") },
+                            modifier = Modifier.testTag("dashboard_settings_icon")) {
                             Icon(
                                 imageVector = Icons.Filled.Settings,
                                 contentDescription = "Settings",
@@ -106,7 +110,9 @@ fun DashboardScreen(
                     resId = R.drawable.ic_shopping,
                     count = itemCount,
                     extraText = null,
-                    modifier = Modifier.weight(1f),
+                    modifier = Modifier
+                        .weight(1f)
+                        .testTag("tile_shopping"),
                     shape = RoundedCornerShape(18.dp),
                     borderColor = DashboardColors.Label
                 ) { navController.navigate("shopping") }
@@ -115,7 +121,9 @@ fun DashboardScreen(
                     resId = R.drawable.ic_cleaning,
                     count = null,
                     extraText = cleaningStatus,
-                    modifier = Modifier.weight(1f),
+                    modifier = Modifier
+                        .testTag("tile_cleaning")
+                        .weight(1f),
                     shape = RoundedCornerShape(18.dp),
                     borderColor = DashboardColors.Label
                 ) { navController.navigate("cleaning") }
@@ -147,7 +155,8 @@ fun DashboardScreen(
             FullWidthContactsTile(
                 text = "Contacts",
                 shape = RoundedCornerShape(18.dp),
-                borderColor = DashboardColors.Label
+                modifier = Modifier.testTag("tile_contacts"),
+                borderColor = DashboardColors.Label,
             ) { navController.navigate("contacts") }
         }
     }
@@ -212,6 +221,7 @@ private fun DashboardTilePng(
 
 @Composable
 private fun FullWidthContactsTile(
+    modifier: Modifier = Modifier,
     text: String,
     shape: RoundedCornerShape,
     borderColor: Color,

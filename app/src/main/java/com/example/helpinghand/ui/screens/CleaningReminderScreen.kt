@@ -24,6 +24,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
@@ -51,12 +52,14 @@ fun CleaningReminderScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
+                .testTag("cleaning_screen")
         ) {
 
             // Top App Bar
             TopAppBar(
                 navigationIcon = {
-                    IconButton(onClick = { navController.popBackStack() }) {
+                    IconButton(onClick = { navController.popBackStack() },
+                        modifier = Modifier.testTag("cleaning_back")) {
                         Icon(
                             imageVector = Icons.Default.ArrowBack,
                             contentDescription = "Back to Dashboard",
@@ -84,12 +87,14 @@ fun CleaningReminderScreen(
                         Text(
                             text = "Cleaning",
                             fontSize = 20.sp,
-                            color = C.OnBackground
+                            color = C.OnBackground,
+                            modifier = Modifier.testTag("cleaning_title")
                         )
                     }
                 },
                 actions = {
-                    IconButton(onClick = { navController.navigate("settings") }) {
+                    IconButton(onClick = { navController.navigate("settings") },
+                        modifier = Modifier.testTag("cleaning_settings_icon")) {
                         Icon(
                             imageVector = Icons.Filled.Settings,
                             contentDescription = "Settings",
@@ -126,7 +131,8 @@ fun CleaningReminderScreen(
                                 .width(140.dp)
                                 .height(40.dp)
                                 .shadow(6.dp, RoundedCornerShape(999.dp), clip = false)
-                                .clickable { showDialog = true },
+                                .clickable { showDialog = true }
+                                .testTag("cleaning_add_button"),
                             shape = RoundedCornerShape(999.dp),
                             color = C.SurfaceVariant,
                             tonalElevation = 4.dp,
@@ -150,7 +156,8 @@ fun CleaningReminderScreen(
                     LazyColumn(
                         modifier = Modifier
                             .fillMaxSize()
-                            .padding(horizontal = 16.dp, vertical = 4.dp),
+                            .padding(horizontal = 16.dp, vertical = 4.dp)
+                            .testTag("cleaning_list"),
                         verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
                         items(reminderItems, key = { it.id }) { item ->
@@ -182,7 +189,7 @@ fun CleaningReminderScreen(
                                 if (input.length <= 15) newName = input
                             },
                             label = { Text("Task name (max 15 chars)") },
-                            singleLine = true
+                            singleLine = true,
                         )
                         OutlinedTextField(
                             value = newInterval,
@@ -203,13 +210,15 @@ fun CleaningReminderScreen(
                                 newInterval = ""
                                 showDialog = false
                             }
-                        }
+                        },
+                        modifier = Modifier.testTag("cleaning_dialog_confirm")
                     ) {
                         Text("Add", color = C.Primary)
                     }
                 },
                 dismissButton = {
-                    TextButton(onClick = { showDialog = false }) {
+                    TextButton(onClick = { showDialog = false },
+                        modifier = Modifier.testTag("cleaning_dialog_cancel")) {
                         Text("Cancel", color = C.OnSurfaceVariant)
                     }
                 },

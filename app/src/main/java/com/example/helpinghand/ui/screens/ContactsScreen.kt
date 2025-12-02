@@ -32,6 +32,7 @@ import com.example.helpinghand.ui.theme.ShoppingColors as C
 import android.content.Intent
 import android.net.Uri
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
 import androidx.core.net.toUri
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -52,12 +53,14 @@ fun ContactsScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
+                .testTag("contacts_screen")
         ) {
 
             // --- Top App Bar  ---
             TopAppBar(
                 navigationIcon = {
-                    IconButton(onClick = { navController.popBackStack() }) {
+                    IconButton(onClick = { navController.popBackStack() },
+                        modifier = Modifier.testTag("contacts_back")) {
                         Icon(
                             imageVector = Icons.Default.ArrowBack,
                             contentDescription = "Back to Dashboard",
@@ -85,12 +88,14 @@ fun ContactsScreen(
                         Text(
                             text = "Contacts",
                             fontSize = 20.sp,
-                            color = C.OnBackground
+                            color = C.OnBackground,
+                            modifier = Modifier.testTag("contacts_title")
                         )
                     }
                 },
                 actions = {
-                    IconButton(onClick = { navController.navigate("settings") }) {
+                    IconButton(onClick = { navController.navigate("settings") },
+                        modifier = Modifier.testTag("contacts_settings_icon")) {
                         Icon(
                             imageVector = Icons.Filled.Settings,
                             contentDescription = "Settings",
@@ -128,7 +133,8 @@ fun ContactsScreen(
                                 .width(160.dp)
                                 .height(40.dp)
                                 .shadow(6.dp, RoundedCornerShape(999.dp), clip = false)
-                                .clickable { showDialog = true },
+                                .clickable { showDialog = true }
+                                .testTag("contacts_add_button"),
                             shape = RoundedCornerShape(999.dp),
                             color = C.SurfaceVariant,
                             tonalElevation = 4.dp,
@@ -154,7 +160,8 @@ fun ContactsScreen(
                     LazyColumn(
                         modifier = Modifier
                             .fillMaxSize()
-                            .padding(horizontal = 16.dp, vertical = 4.dp),
+                            .padding(horizontal = 16.dp, vertical = 4.dp)
+                            .testTag("contacts_list"),
                         verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
                         grouped.toSortedMap().forEach { (letter, listForLetter) ->
@@ -207,13 +214,15 @@ fun ContactsScreen(
                                 emailField = TextFieldValue("")
                                 showDialog = false
                             }
-                        }
+                        },
+                        modifier = Modifier.testTag("contacts_dialog_confirm")
                     ) {
                         Text("Add", color = C.Primary)
                     }
                 },
                 dismissButton = {
-                    TextButton(onClick = { showDialog = false }) {
+                    TextButton(onClick = { showDialog = false },
+                        modifier = Modifier.testTag("contacts_dialog_cancel")) {
                         Text("Cancel", color = C.OnSurfaceVariant)
                     }
                 },

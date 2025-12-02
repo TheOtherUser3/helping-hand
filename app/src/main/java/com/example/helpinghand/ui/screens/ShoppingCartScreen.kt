@@ -37,6 +37,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import coil.compose.rememberAsyncImagePainter
@@ -59,11 +60,13 @@ fun ShoppingCartScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(inner)
+                .testTag("shopping_screen")
         ) {
             // --- Top App Bar ---
             TopAppBar(
                 navigationIcon = {
-                    IconButton(onClick = { navController.popBackStack() }) {
+                    IconButton(onClick = { navController.popBackStack() },
+                        modifier = Modifier.testTag("shopping_back")) {
                         Icon(
                             imageVector = Icons.Default.ArrowBack,
                             contentDescription = "Back to Dashboard",
@@ -89,7 +92,8 @@ fun ShoppingCartScreen(
                     }
                 },
                 actions = {
-                    IconButton(onClick = { navController.navigate("settings") }) {
+                    IconButton(onClick = { navController.navigate("settings") },
+                        modifier = Modifier.testTag("shopping_settings_icon")) {
                         Icon(Icons.Filled.Settings, null, tint = C.OnBackground)
                     }
                 },
@@ -110,13 +114,17 @@ fun ShoppingCartScreen(
                     text = "Shopping Cart",
                     color = C.Primary,
                     fontSize = 20.sp,
-                    modifier = Modifier.align(Alignment.Center)
+                    modifier = Modifier
+                        .testTag("shopping_title")
+                        .align(Alignment.Center)
                 )
 
                 // Right-aligned arrow
                 IconButton(
                     onClick = { navController.navigate("meals") },
-                    modifier = Modifier.align(Alignment.CenterEnd)
+                    modifier = Modifier
+                        .testTag("shopping_to_meals")
+                        .align(Alignment.CenterEnd)
                 ) {
                     Icon(
                         imageVector = Icons.Filled.ChevronRight,
@@ -141,6 +149,7 @@ fun ShoppingCartScreen(
                     leadingIcon = {
                         Icon(Icons.Filled.Add, contentDescription = null, tint = C.Primary)
                     },
+                    modifier = Modifier.testTag("shopping_add_item"),
                     colors = AssistChipDefaults.assistChipColors(containerColor = C.Surface)
                 )
 
@@ -148,8 +157,8 @@ fun ShoppingCartScreen(
 
                 // Generate Meals button
                 IconButton(onClick = {
-                    mealsViewModel.fetchMealsFromCheckedItems()
-                }) {
+                    mealsViewModel.fetchMealsFromCheckedItems() },
+                    modifier = Modifier.testTag("shopping_generate_meals")) {
                     Icon(
                         imageVector = Icons.Filled.RestaurantMenu,
                         contentDescription = "Generate Meals",
@@ -158,7 +167,8 @@ fun ShoppingCartScreen(
                 }
 
                 // delete button
-                IconButton(onClick = { viewModel.deleteChecked() }) {
+                IconButton(onClick = { viewModel.deleteChecked() },
+                    modifier = Modifier.testTag("shopping_delete_checked")) {
                     Icon(Icons.Filled.Delete, contentDescription = "Delete Checked", tint = C.OnBackground)
                 }
             }
@@ -167,12 +177,14 @@ fun ShoppingCartScreen(
             Surface(
                 modifier = Modifier
                     .fillMaxWidth()
+                    .testTag("shopping_list_container")
                     .weight(1f),
                 color = C.SurfaceVariant
             ) {
                 LazyColumn(
                     modifier = Modifier
                         .fillMaxSize()
+                        .testTag("shopping_list")
                         .padding(horizontal = 16.dp),
                     contentPadding = PaddingValues(vertical = 8.dp)
                 ) {
@@ -293,13 +305,15 @@ fun ShoppingCartScreen(
                                 newItemText = TextFieldValue("")
                                 showDialog = false
                             }
-                        }
+                        },
+                        modifier = Modifier.testTag("shopping_add_dialog_confirm")
                     ) {
                         Text("Add", color = C.Primary)
                     }
                 },
                 dismissButton = {
-                    TextButton(onClick = { showDialog = false }) {
+                    TextButton(onClick = { showDialog = false },
+                        modifier = Modifier.testTag("shopping_add_dialog_cancel")) {
                         Text("Cancel", color = C.OnSurfaceVariant)
                     }
                 },
@@ -309,7 +323,8 @@ fun ShoppingCartScreen(
                         value = newItemText,
                         onValueChange = { newItemText = it },
                         label = { Text("Item name") },
-                        singleLine = true
+                        singleLine = true,
+                        modifier = Modifier.testTag("shopping_add_dialog_field")
                     )
                 },
                 containerColor = C.Surface

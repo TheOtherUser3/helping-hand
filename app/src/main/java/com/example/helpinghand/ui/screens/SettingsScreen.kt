@@ -12,6 +12,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.text.font.FontWeight
@@ -35,6 +36,7 @@ fun SettingsScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
+                .testTag("settings_screen")
         ) {
             // Status Bar
             Row(
@@ -107,7 +109,8 @@ fun SettingsScreen(
                     }
                 },
                 navigationIcon = {
-                    IconButton(onClick = { navController.popBackStack() }) {
+                    IconButton(onClick = { navController.popBackStack() },
+                        modifier = Modifier.testTag("settings_back")) {
                         Icon(
                             imageVector = Icons.Filled.ArrowBack,
                             contentDescription = "Back",
@@ -166,6 +169,7 @@ fun SettingsScreen(
                             Switch(
                                 checked = isDynamicTheme,
                                 onCheckedChange = onDynamicThemeChange,
+                                modifier = Modifier.testTag("switch_dynamic_theme"),
                                 colors = SwitchDefaults.colors(
                                     checkedThumbColor = Color.White,
                                     checkedTrackColor = AppColors.Primary,
@@ -213,6 +217,7 @@ fun SettingsScreen(
                             checked = isDarkMode,
                             onCheckedChange = { if (enabled) onDarkModeChange(it) },
                             enabled = enabled,
+                            modifier = Modifier.testTag("switch_dark_mode"),
                             colors = SwitchDefaults.colors(
                                 checkedThumbColor = Color.White,
                                 checkedTrackColor = AppColors.Primary,
