@@ -9,6 +9,9 @@ import androidx.navigation.compose.rememberNavController
 import com.example.helpinghand.ui.screens.DashboardScreen
 import com.example.helpinghand.ui.screens.ShoppingCartScreen
 import com.example.helpinghand.ui.screens.MealsScreen
+import com.example.helpinghand.ui.screens.SettingsScreen
+import com.example.helpinghand.ui.screens.ContactsScreen
+import com.example.helpinghand.ui.screens.CleaningReminderScreen
 import com.example.helpinghand.ui.viewmodel.ShoppingCartViewModel
 import com.example.helpinghand.viewmodel.MealsViewModel
 
@@ -20,12 +23,25 @@ fun AppNavigation() {
     val mealsViewModel: MealsViewModel = viewModel()
     NavHost(navController = navController, startDestination = "dashboard") {
         composable("dashboard") { DashboardScreen(navController) }
-
         composable("shopping") { ShoppingCartScreen(navController, shoppingCartViewModel, mealsViewModel) }
         composable("meals") { MealsScreen(navController, mealsViewModel) }
-        composable("cleaning") { Text("Cleaning Screen Coming Soon") }
         composable("bills") { Text("Bills Screen Coming Soon") }
         composable("appointments") { Text("Appointments Screen Coming Soon") }
-        composable("contacts") { Text("Contacts Screen Coming Soon") }
+        composable("settings") {
+            SettingsScreen(
+                //i dont really know what to do here so sorry Dawson :')
+                onNavigateBack = { navController.popBackStack()}
+            )
+        }
+        composable("contacts") {
+            ContactsScreen(
+                onNavigateBack = { navController.popBackStack() }
+            )
+        }
+        composable("cleaning") {
+            CleaningReminderScreen(
+                onNavigateBack = { navController.popBackStack() }
+            )
+        }
     }
 }
