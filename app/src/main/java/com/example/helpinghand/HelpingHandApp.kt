@@ -6,12 +6,18 @@ import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import com.example.helpinghand.data.database.AppDatabase
+import com.example.helpinghand.data.database.SettingsRepository
+import com.example.helpinghand.data.database.settingsDataStore  
 import com.example.helpinghand.work.CleaningReminderWorker
 import java.util.concurrent.TimeUnit
 
 class HelpingHandApp : Application() {
 
     lateinit var database: AppDatabase
+        private set
+
+    // settings repository using DataStore
+    lateinit var settingsRepository: SettingsRepository
         private set
 
     override fun onCreate() {
@@ -24,6 +30,8 @@ class HelpingHandApp : Application() {
         )
             .fallbackToDestructiveMigration()
             .build()
+
+        settingsRepository = SettingsRepository(applicationContext.settingsDataStore)
 
         scheduleCleaningReminderWorker()
     }

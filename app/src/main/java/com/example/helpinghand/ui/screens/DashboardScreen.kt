@@ -42,7 +42,7 @@ fun DashboardScreen(
         when {
             days < 0 -> "Overdue!"
             days == 0 -> "Due Today!"
-            else -> "$days days until next due"
+            else -> "$days days to next due"
         }
     } ?: "No reminders"
 

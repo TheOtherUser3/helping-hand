@@ -90,7 +90,7 @@ fun ContactsScreen(
                     }
                 },
                 actions = {
-                    IconButton(onClick = { /* settings later if needed */ }) {
+                    IconButton(onClick = { navController.navigate("settings") }) {
                         Icon(
                             imageVector = Icons.Filled.Settings,
                             contentDescription = "Settings",

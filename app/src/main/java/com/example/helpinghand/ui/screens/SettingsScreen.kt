@@ -12,20 +12,22 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.text.font.FontWeight
+import androidx.navigation.NavHostController
 import com.example.helpinghand.ui.theme.AppColors
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(
-//    onNavigateToReminder: () -> Unit,
-//    onNavigateToContacts: () -> Unit,
-    onNavigateBack: () -> Unit
+    hasLightSensor: Boolean,
+    isDynamicTheme: Boolean,
+    onDynamicThemeChange: (Boolean) -> Unit,
+    isDarkMode: Boolean,
+    onDarkModeChange: (Boolean) -> Unit,
+    navController: NavHostController,
 ) {
-    var isDarkMode by remember { mutableStateOf(false) }
-
     Scaffold(
         containerColor = AppColors.Background
     ) { paddingValues ->
@@ -105,7 +107,7 @@ fun SettingsScreen(
                     }
                 },
                 navigationIcon = {
-                    IconButton(onClick = onNavigateBack) {
+                    IconButton(onClick = { navController.popBackStack() }) {
                         Icon(
                             imageVector = Icons.Filled.ArrowBack,
                             contentDescription = "Back",
@@ -114,7 +116,7 @@ fun SettingsScreen(
                     }
                 },
                 actions = {
-                    IconButton(onClick = { /* Current screen */ }) {
+                    IconButton(onClick = { /* already in settings */ }) {
                         Icon(
                             imageVector = Icons.Filled.Settings,
                             contentDescription = "Settings",
@@ -134,12 +136,57 @@ fun SettingsScreen(
             ) {
                 Spacer(modifier = Modifier.height(8.dp))
 
-                // Light/Dark Mode Setting
+                // Dynamic Theme (only if sensor exists)
+                if (hasLightSensor) {
+                    Surface(
+                        shape = RoundedCornerShape(12.dp),
+                        color = AppColors.Surface,
+                        shadowElevation = 1.dp,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(16.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column {
+                                Text(
+                                    text = "Dynamic Theme",
+                                    fontSize = 16.sp,
+                                    color = AppColors.OnBackground
+                                )
+                                Text(
+                                    text = "Auto light/dark based on ambient light",
+                                    fontSize = 13.sp,
+                                    color = AppColors.OnSurfaceVariant
+                                )
+                            }
+                            Switch(
+                                checked = isDynamicTheme,
+                                onCheckedChange = onDynamicThemeChange,
+                                colors = SwitchDefaults.colors(
+                                    checkedThumbColor = Color.White,
+                                    checkedTrackColor = AppColors.Primary,
+                                    uncheckedThumbColor = Color.White,
+                                    uncheckedTrackColor = AppColors.OnSurfaceVariant.copy(alpha = 0.38f)
+                                )
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(16.dp))
+                }
+
+                // Manual Light/Dark Mode (disabled when dynamic is on)
                 Surface(
                     shape = RoundedCornerShape(12.dp),
                     color = AppColors.Surface,
-                    shadowElevation = 1.dp
+                    shadowElevation = 1.dp,
+                    modifier = Modifier.fillMaxWidth()
                 ) {
+                    val enabled = !isDynamicTheme
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -147,19 +194,35 @@ fun SettingsScreen(
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text(
-                            text = "Light/Dark Mode",
-                            fontSize = 16.sp,
-                            color = AppColors.OnBackground
-                        )
+                        Column {
+                            Text(
+                                text = "Light / Dark Mode",
+                                fontSize = 16.sp,
+                                color = if (enabled) AppColors.OnBackground
+                                else AppColors.OnSurfaceVariant
+                            )
+                            if (isDynamicTheme) {
+                                Text(
+                                    text = "Disabled while Dynamic Theme is on",
+                                    fontSize = 13.sp,
+                                    color = AppColors.OnSurfaceVariant
+                                )
+                            }
+                        }
                         Switch(
                             checked = isDarkMode,
-                            onCheckedChange = { isDarkMode = it },
+                            onCheckedChange = { if (enabled) onDarkModeChange(it) },
+                            enabled = enabled,
                             colors = SwitchDefaults.colors(
                                 checkedThumbColor = Color.White,
                                 checkedTrackColor = AppColors.Primary,
                                 uncheckedThumbColor = Color.White,
-                                uncheckedTrackColor = AppColors.OnSurfaceVariant.copy(alpha = 0.38f)
+                                uncheckedTrackColor = AppColors.OnSurfaceVariant.copy(alpha = 0.38f),
+
+                                disabledCheckedThumbColor = Color.LightGray,
+                                disabledCheckedTrackColor = AppColors.OnSurfaceVariant.copy(alpha = 0.3f),
+                                disabledUncheckedThumbColor = Color.LightGray,
+                                disabledUncheckedTrackColor = AppColors.OnSurfaceVariant.copy(alpha = 0.2f)
                             )
                         )
                     }
@@ -167,12 +230,14 @@ fun SettingsScreen(
 
                 Spacer(modifier = Modifier.height(16.dp))
 
-                // Logout Button
+                // Logout button (unchanged)
                 Surface(
                     shape = RoundedCornerShape(12.dp),
                     color = AppColors.Surface,
                     shadowElevation = 1.dp,
-                    modifier = Modifier.clickable { /* Handle logout */ }
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { /* Handle logout */ }
                 ) {
                     Row(
                         modifier = Modifier
@@ -188,8 +253,6 @@ fun SettingsScreen(
                         )
                     }
                 }
-
-                Spacer(modifier = Modifier.height(16.dp))
             }
 
             // Gesture Bar

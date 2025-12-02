@@ -89,7 +89,7 @@ fun ShoppingCartScreen(
                     }
                 },
                 actions = {
-                    IconButton(onClick = { /* settings later */ }) {
+                    IconButton(onClick = { navController.navigate("settings") }) {
                         Icon(Icons.Filled.Settings, null, tint = C.OnBackground)
                     }
                 },
