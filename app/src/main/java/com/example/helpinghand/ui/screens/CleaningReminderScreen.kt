@@ -53,7 +53,7 @@ fun CleaningReminderScreen(
                 .padding(paddingValues)
         ) {
 
-            // top app bar same as before...
+            // Top App Bar
             TopAppBar(
                 navigationIcon = {
                     IconButton(onClick = { navController.popBackStack() }) {
@@ -89,7 +89,7 @@ fun CleaningReminderScreen(
                     }
                 },
                 actions = {
-                    IconButton(onClick = { /* settings later */ }) {
+                    IconButton(onClick = { navController.navigate("settings") }) {
                         Icon(
                             imageVector = Icons.Filled.Settings,
                             contentDescription = "Settings",
@@ -114,7 +114,7 @@ fun CleaningReminderScreen(
                     modifier = Modifier.fillMaxSize()
                 ) {
 
-                    // + button opens dialog
+                    // Centered "+" pill button
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -154,11 +154,13 @@ fun CleaningReminderScreen(
                         verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
                         items(reminderItems, key = { it.id }) { item ->
-                            val daysUntil = (item.nextDueEpochDay - todayEpochDay).coerceAtLeast(0)
+                            val daysUntil =
+                                (item.nextDueEpochDay - todayEpochDay).coerceAtLeast(0)
                             CleaningReminderCard(
                                 item = item,
                                 daysUntil = daysUntil,
-                                onResetClick = { viewModel.resetCycle(item) }
+                                onResetClick = { viewModel.resetCycle(item) },
+                                onDeleteClick = { viewModel.deleteReminder(item) }
                             )
                         }
                     }
@@ -175,8 +177,11 @@ fun CleaningReminderScreen(
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         OutlinedTextField(
                             value = newName,
-                            onValueChange = { newName = it },
-                            label = { Text("Task name") },
+                            onValueChange = { input ->
+                                // 15-char limit on name
+                                if (input.length <= 15) newName = input
+                            },
+                            label = { Text("Task name (max 15 chars)") },
                             singleLine = true
                         )
                         OutlinedTextField(
@@ -218,7 +223,8 @@ fun CleaningReminderScreen(
 private fun CleaningReminderCard(
     item: CleaningReminder,
     daysUntil: Int,
-    onResetClick: () -> Unit
+    onResetClick: () -> Unit,
+    onDeleteClick: () -> Unit
 ) {
     Surface(
         modifier = Modifier
@@ -241,6 +247,7 @@ private fun CleaningReminderCard(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
+            // Left: task name
             Text(
                 text = item.name,
                 fontSize = 16.sp,
@@ -248,10 +255,12 @@ private fun CleaningReminderCard(
                 fontWeight = FontWeight.Medium
             )
 
+            // Right: alarm + label + reset pill + delete icon
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
+                // Alarm + text
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(4.dp)
@@ -265,8 +274,8 @@ private fun CleaningReminderCard(
 
                     val label = when {
                         daysUntil <= 0 -> "Due now"
-                        daysUntil == 1 -> "1 day until"
-                        else -> "$daysUntil days until"
+                        daysUntil == 1 -> "Tomorrow!"
+                        else -> "$daysUntil days"
                     }
 
                     Text(
@@ -276,6 +285,7 @@ private fun CleaningReminderCard(
                     )
                 }
 
+                // Reset pill
                 Surface(
                     shape = RoundedCornerShape(999.dp),
                     color = C.SurfaceVariant,
@@ -295,15 +305,26 @@ private fun CleaningReminderCard(
                             )
                         }
                         Text(
-                            text = "Reset",
+                            text = "",
                             fontSize = 14.sp,
                             color = C.Primary,
                             fontWeight = FontWeight.Medium
                         )
                     }
                 }
+
+                // Delete icon
+                IconButton(
+                    onClick = onDeleteClick,
+                    modifier = Modifier.size(32.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.Delete,
+                        contentDescription = "Delete reminder",
+                        tint = C.OnSurfaceVariant
+                    )
+                }
             }
         }
     }
 }
-

@@ -56,6 +56,7 @@ class CleaningReminderViewModel(
         }
     }
 
+    @RequiresApi(Build.VERSION_CODES.O)
     fun resetCycle(item: CleaningReminder) {
         val today = todayEpochDay()
         val nextDue = today + item.intervalDays
@@ -64,6 +65,12 @@ class CleaningReminderViewModel(
             dao.update(
                 item.copy(nextDueEpochDay = nextDue)
             )
+        }
+    }
+
+    fun deleteReminder(item: CleaningReminder) {
+        viewModelScope.launch {
+            dao.delete(item)
         }
     }
 }
