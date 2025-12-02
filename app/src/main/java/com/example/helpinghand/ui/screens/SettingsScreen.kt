@@ -98,7 +98,7 @@ fun SettingsScreen(
                             }
                         }
                         Text(
-                            text = "Shopping & Meals",
+                            text = "Settings",
                             fontSize = 22.sp,
                             color = AppColors.OnBackground
                         )
