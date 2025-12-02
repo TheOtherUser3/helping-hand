@@ -78,8 +78,19 @@ UPDATE 11/11
 
 UPDATE 12/02
 - Current features include a contacts page with the ability to add a contact, a settings page with adaptable option of adding a dark mode, and a cleaning reminder page to let the user know the last time they cleaned
+-In Progress Features: Testing, Settings App
+-Pending: Onboarding, Login/Registration
 - Testing Strategy:
-    
+
+1. **Logging-based debugging:**  
+   We added structured logging for API calls, database operations, navigation, ViewModel state updates, sensor values, and Worker tasks. This made it easy to trace app behavior in Logcat.
+
+2. **Crash handling:**  
+   Error-prone operations use try/catch blocks. Failures are logged with context and stack traces so crashes are easy to diagnose.
+
+3. **Targeted Compose UI tests:**  
+   We added UI tests for core flows such as opening screens, navigating between them, and adding new items through dialogs. (although there is one mistake with the tests we need to fix at the moment)
+
 
 
 **Signed,**  
