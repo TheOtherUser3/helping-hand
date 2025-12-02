@@ -75,5 +75,12 @@ UPDATE 11/11
 - To build, add Spoonacular API key into the local.properties
 - Current features include the Shopping Cart fully functioning widget and the appearance of the dashboard 
 
+
+UPDATE 12/02
+- Current features include a contacts page with the ability to add a contact, a settings page with adaptable option of adding a dark mode, and a cleaning reminder page to let the user know the last time they cleaned
+- Testing Strategy:
+    
+
+
 **Signed,**  
 *The Mia Dawgs*
