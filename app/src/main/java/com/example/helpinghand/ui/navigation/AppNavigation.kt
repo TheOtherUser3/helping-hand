@@ -72,6 +72,7 @@ fun AppNavigation(
         }
 
         composable("bills") { Text("Bills Screen Coming Soon") }
+
         composable("appointments") { Text("Appointments Screen Coming Soon") }
 
         composable("settings") {

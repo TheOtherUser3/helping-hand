@@ -7,7 +7,7 @@ import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import com.example.helpinghand.data.database.AppDatabase
 import com.example.helpinghand.data.database.SettingsRepository
-import com.example.helpinghand.data.database.settingsDataStore   // <<< IMPORTANT
+import com.example.helpinghand.data.database.settingsDataStore  
 import com.example.helpinghand.work.CleaningReminderWorker
 import java.util.concurrent.TimeUnit
 
@@ -31,7 +31,6 @@ class HelpingHandApp : Application() {
             .fallbackToDestructiveMigration()
             .build()
 
-        // ✅ Pass the DataStore, not the Context
         settingsRepository = SettingsRepository(applicationContext.settingsDataStore)
 
         scheduleCleaningReminderWorker()
