@@ -17,6 +17,9 @@ import com.example.helpinghand.data.database.SettingsRepository
 import com.example.helpinghand.ui.screens.*
 import com.example.helpinghand.viewmodel.*
 import kotlinx.coroutines.launch
+import androidx.compose.runtime.LaunchedEffect
+import com.example.helpinghand.AppLogger
+
 
 @RequiresApi(Build.VERSION_CODES.O)
 @Composable
@@ -25,6 +28,16 @@ fun AppNavigation(
     hasLightSensor: Boolean
 ) {
     val navController = rememberNavController()
+    // log each nav change
+    LaunchedEffect(navController) {
+        navController.addOnDestinationChangedListener { _, destination, arguments ->
+            AppLogger.d(
+                AppLogger.TAG_NAV,
+                "Nav destination changed: route=${destination.route}, args=$arguments"
+            )
+        }
+    }
+
 
     val app = LocalContext.current.applicationContext as HelpingHandApp
     val db = app.database

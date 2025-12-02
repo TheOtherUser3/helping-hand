@@ -11,11 +11,13 @@ import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.flow.collectLatest
+import com.example.helpinghand.AppLogger
+
 
 private fun SensorManager.lightSensorFlow(): Flow<Float> = callbackFlow {
     val sensor = getDefaultSensor(Sensor.TYPE_LIGHT)
     if (sensor == null) {
-        // No sensor: close immediately
+        AppLogger.d(AppLogger.TAG_SENSOR, "lightSensorFlow: no LIGHT sensor on device")
         close()
         return@callbackFlow
     }
@@ -23,6 +25,7 @@ private fun SensorManager.lightSensorFlow(): Flow<Float> = callbackFlow {
     val listener = object : SensorEventListener {
         override fun onSensorChanged(event: SensorEvent) {
             val lux = event.values.firstOrNull() ?: return
+            AppLogger.d(AppLogger.TAG_SENSOR, "lightSensorFlow: sensor changed lux=$lux")
             trySend(lux).isSuccess
         }
 
@@ -54,20 +57,36 @@ fun rememberIsDarkFromSensor(
 
     // Check once if sensor exists
     val hasLightSensor = remember {
-        sensorManager.getDefaultSensor(Sensor.TYPE_LIGHT) != null
+        val exists = sensorManager.getDefaultSensor(Sensor.TYPE_LIGHT) != null
+        AppLogger.d(AppLogger.TAG_SENSOR, "rememberIsDarkFromSensor: hasLightSensor=$exists")
+        exists
     }
 
     var isDark by remember { mutableStateOf(false) }
 
     LaunchedEffect(dynamicEnabled, hasLightSensor, sensorManager) {
+        AppLogger.d(
+            AppLogger.TAG_ASYNC,
+            "rememberIsDarkFromSensor: started, dynamicEnabled=$dynamicEnabled, hasLightSensor=$hasLightSensor"
+        )
+
         if (!dynamicEnabled || !hasLightSensor) {
             isDark = false
+            AppLogger.d(
+                AppLogger.TAG_SENSOR,
+                "rememberIsDarkFromSensor: dynamic off or no sensor; forcing isDark=false"
+            )
             return@LaunchedEffect
         }
 
         // Collect lux as long as we are in composition & dynamic is on
         sensorManager.lightSensorFlow().collectLatest { lux ->
-            isDark = lux < luxThreshold
+            val newIsDark = lux < luxThreshold
+            AppLogger.d(
+                AppLogger.TAG_SENSOR,
+                "rememberIsDarkFromSensor: lux=$lux, threshold=$luxThreshold, isDark=$newIsDark"
+            )
+            isDark = newIsDark
         }
     }
 

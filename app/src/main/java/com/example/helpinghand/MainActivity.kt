@@ -19,16 +19,25 @@ import androidx.navigation.compose.rememberNavController
 import com.example.helpinghand.ui.theme.HelpingHandTheme
 import com.example.helpinghand.ui.navigation.AppNavigation
 import com.example.helpinghand.work.rememberIsDarkFromSensor
+import com.example.helpinghand.AppLogger
+
 
 class MainActivity : ComponentActivity() {
 
+    @RequiresApi(Build.VERSION_CODES.O)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
+        AppLogger.d(AppLogger.TAG_VM, "MainActivity.onCreate")
+
         val app = application as HelpingHandApp
-        val settingsRepository = app.settingsRepository  // however you expose it
+        val settingsRepository = app.settingsRepository
+
+        enableEdgeToEdge()
 
         setContent {
+            val navController = rememberNavController()
+
             val darkMode by settingsRepository.darkModeEnabled.collectAsState(initial = false)
             val dynamicTheme by settingsRepository.dynamicThemeEnabled.collectAsState(initial = false)
 
@@ -53,6 +62,3 @@ class MainActivity : ComponentActivity() {
         }
     }
 }
-
-
-

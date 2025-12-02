@@ -5,6 +5,7 @@ import androidx.annotation.RequiresApi
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import com.example.helpinghand.AppLogger
 import com.example.helpinghand.data.dao.CleaningReminderDao
 import com.example.helpinghand.data.model.CleaningReminder
 import kotlinx.coroutines.flow.SharingStarted
@@ -40,19 +41,52 @@ class CleaningReminderViewModel(
 
     @RequiresApi(Build.VERSION_CODES.O)
     fun addReminder(name: String, intervalDays: Int) {
-        if (name.isBlank() || intervalDays <= 0) return
+        val trimmedName = name.trim()
+
+        AppLogger.d(
+            AppLogger.TAG_VM,
+            "addReminder called: name=\"$trimmedName\", intervalDays=$intervalDays"
+        )
+
+        if (trimmedName.isBlank() || intervalDays <= 0) {
+            AppLogger.d(
+                AppLogger.TAG_VM,
+                "addReminder: validation failed, aborting"
+            )
+            return
+        }
 
         val today = todayEpochDay()
         val nextDue = today + intervalDays
 
         viewModelScope.launch {
-            dao.insert(
-                CleaningReminder(
-                    name = name,
+            AppLogger.d(
+                AppLogger.TAG_ASYNC,
+                "addReminder: coroutine started for name=\"$trimmedName\""
+            )
+            try {
+                val reminder = CleaningReminder(
+                    name = trimmedName,
                     intervalDays = intervalDays,
                     nextDueEpochDay = nextDue
                 )
-            )
+                AppLogger.d(
+                    AppLogger.TAG_DB,
+                    "addReminder: inserting reminder=$reminder"
+                )
+                dao.insert(reminder)
+            } catch (e: Exception) {
+                AppLogger.e(
+                    AppLogger.TAG_DB,
+                    "addReminder: FAILED for name=\"$trimmedName\" message=${e.message}",
+                    e
+                )
+            } finally {
+                AppLogger.d(
+                    AppLogger.TAG_ASYNC,
+                    "addReminder: coroutine finished for name=\"$trimmedName\""
+                )
+            }
         }
     }
 
@@ -62,15 +96,56 @@ class CleaningReminderViewModel(
         val nextDue = today + item.intervalDays
 
         viewModelScope.launch {
-            dao.update(
-                item.copy(nextDueEpochDay = nextDue)
+            AppLogger.d(
+                AppLogger.TAG_ASYNC,
+                "resetCycle: coroutine started for id=${item.id}"
             )
+            try {
+                val updated = item.copy(nextDueEpochDay = nextDue)
+                AppLogger.d(
+                    AppLogger.TAG_DB,
+                    "resetCycle: updating reminder to $updated"
+                )
+                dao.update(updated)
+            } catch (e: Exception) {
+                AppLogger.e(
+                    AppLogger.TAG_DB,
+                    "resetCycle: FAILED for id=${item.id} message=${e.message}",
+                    e
+                )
+            } finally {
+                AppLogger.d(
+                    AppLogger.TAG_ASYNC,
+                    "resetCycle: coroutine finished for id=${item.id}"
+                )
+            }
         }
     }
 
     fun deleteReminder(item: CleaningReminder) {
         viewModelScope.launch {
-            dao.delete(item)
+            AppLogger.d(
+                AppLogger.TAG_ASYNC,
+                "deleteReminder: coroutine started for id=${item.id}"
+            )
+            try {
+                AppLogger.d(
+                    AppLogger.TAG_DB,
+                    "deleteReminder: deleting reminder=$item"
+                )
+                dao.delete(item)
+            } catch (e: Exception) {
+                AppLogger.e(
+                    AppLogger.TAG_DB,
+                    "deleteReminder: FAILED for id=${item.id} message=${e.message}",
+                    e
+                )
+            } finally {
+                AppLogger.d(
+                    AppLogger.TAG_ASYNC,
+                    "deleteReminder: coroutine finished for id=${item.id}"
+                )
+            }
         }
     }
 }

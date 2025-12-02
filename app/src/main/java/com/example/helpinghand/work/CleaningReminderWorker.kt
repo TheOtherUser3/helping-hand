@@ -18,6 +18,8 @@ import com.example.helpinghand.MainActivity
 import com.example.helpinghand.R
 import com.example.helpinghand.data.model.CleaningReminder
 import java.time.LocalDate
+import com.example.helpinghand.AppLogger
+
 
 class CleaningReminderWorker(
     appContext: Context,
@@ -27,18 +29,44 @@ class CleaningReminderWorker(
     @RequiresPermission(Manifest.permission.POST_NOTIFICATIONS)
     @RequiresApi(Build.VERSION_CODES.O)
     override suspend fun doWork(): Result {
-        // Get DAO from Application
-        val app = applicationContext as HelpingHandApp
-        val dao = app.database.cleaningReminderDao()
+        AppLogger.d(AppLogger.TAG_ASYNC, "CleaningReminderWorker.doWork started")
 
-        val todayEpochDay = LocalDate.now().toEpochDay().toInt()
-        val dueReminders: List<CleaningReminder> = dao.getDueReminders(todayEpochDay)
+        return try {
+            // Get DAO from Application
+            val app = applicationContext as HelpingHandApp
+            val dao = app.database.cleaningReminderDao()
 
-        if (dueReminders.isNotEmpty()) {
-            showDueNotification(dueReminders)
+            val todayEpochDay = LocalDate.now().toEpochDay().toInt()
+            AppLogger.d(
+                AppLogger.TAG_DB,
+                "CleaningReminderWorker: querying due reminders for day=$todayEpochDay"
+            )
+
+            val dueReminders: List<CleaningReminder> = dao.getDueReminders(todayEpochDay)
+
+            AppLogger.d(
+                AppLogger.TAG_DB,
+                "CleaningReminderWorker: found ${dueReminders.size} due reminders"
+            )
+
+            if (dueReminders.isNotEmpty()) {
+                AppLogger.d(
+                    AppLogger.TAG_VM,
+                    "CleaningReminderWorker: showing notification for first=${dueReminders.first().name}"
+                )
+                showDueNotification(dueReminders)
+            }
+
+            AppLogger.d(AppLogger.TAG_ASYNC, "CleaningReminderWorker.doWork completed successfully")
+            Result.success()
+        } catch (e: Exception) {
+            AppLogger.e(
+                AppLogger.TAG_ASYNC,
+                "CleaningReminderWorker.doWork FAILED: ${e.message}",
+                e
+            )
+            Result.failure()
         }
-
-        return Result.success()
     }
 
     @RequiresPermission(Manifest.permission.POST_NOTIFICATIONS)
@@ -68,12 +96,15 @@ class CleaningReminderWorker(
             "$firstName and ${dueReminders.size - 1} more tasks are due today."
         }
 
-        // When user taps the notification, open MainActivity.  Maybe have it route straight to
-        // cleaning screen later if we have time
+        AppLogger.d(
+            AppLogger.TAG_VM,
+            "CleaningReminderWorker: building notification with contentText=\"$contentText\""
+        )
+
+        // Tap takes you to app
         val intent = Intent(context, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
         }
-
         val pendingIntent = PendingIntent.getActivity(
             context,
             0,
