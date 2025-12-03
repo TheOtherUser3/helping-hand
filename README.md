@@ -79,7 +79,7 @@ UPDATE 11/11
 UPDATE 12/02
 - Current features include all previous features, plus a contacts page with the ability to add a contact with email and/or phone number, a settings page with adaptable option of adding a dark mode, as welll as a dynamic dark mode option using the light sensor if their phone has it built in, and a cleaning reminder page to let the user know when they are due to perform their regularly scheduled cleanings that they input (sends notifications to users when they have a cleaning due).  Meal page now has option to add all missing ingredients to shopping list, and clikcing a meal brings the user to the Spoonacular page (to access the recipe)
 -In Progress Features: Testing, Settings App, (add reactiveness to Contacts widget on dashboard)
--Pending: Onboarding, Login/Registration, (Add request popup for notification access)
+-Pending: Onboarding, Login/Registration, (Add request popup for notification access), Startup Screen
 - Testing Strategy:
 
 1. **Logging-based debugging:**  
