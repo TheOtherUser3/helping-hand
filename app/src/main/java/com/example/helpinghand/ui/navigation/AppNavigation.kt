@@ -25,6 +25,8 @@ import com.example.helpinghand.ui.screens.CleaningReminderScreen
 import com.example.helpinghand.viewmodel.ShoppingCartViewModel
 import com.example.helpinghand.viewmodel.MealsViewModel
 import com.example.helpinghand.ui.screens.DoctorAppointmentsScreen
+import com.example.helpinghand.ui.screens.LoginScreen
+import com.example.helpinghand.ui.screens.RegistrationScreen
 import com.example.helpinghand.viewmodel.CleaningReminderViewModel
 import com.example.helpinghand.viewmodel.CleaningReminderViewModelFactory
 import com.example.helpinghand.viewmodel.ContactsViewModel
@@ -84,6 +86,7 @@ fun AppNavigation(
     val scope = rememberCoroutineScope()
 
     NavHost(navController = navController, startDestination = "dashboard") {
+        //change to "login" when firebase is all good :)
 
         composable("dashboard") {
             DashboardScreen(navController, dashboardViewModel)
@@ -141,6 +144,27 @@ fun AppNavigation(
             CleaningReminderScreen(
                 navController = navController,
                 viewModel = cleaningReminderViewModel
+            )
+        }
+
+        // In AppNavigation.kt
+        composable("login") {
+            LoginScreen(
+                navController = navController,
+                onLoginSuccess = { navController.navigate("dashboard") },
+                onLogin = { email, password ->
+                    // Firebase: auth.signInWithEmailAndPassword(email, password)
+                }
+            )
+        }
+
+        composable("register") {
+            RegistrationScreen(
+                navController = navController,
+                onRegisterSuccess = { navController.navigate("dashboard") },
+                onRegister = { name, email, password ->
+                    // Firebase: auth.createUserWithEmailAndPassword(email, password)
+                }
             )
         }
     }
