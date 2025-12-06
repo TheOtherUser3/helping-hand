@@ -23,6 +23,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -72,6 +73,7 @@ fun MealsScreen(
                 .fillMaxSize()
                 .padding(paddingValues)
                 .background(C.Background)
+                .testTag("meals_screen")
         ) {
 
             // Top bar ---------------------------------------------------------
@@ -81,7 +83,8 @@ fun MealsScreen(
                         onClick = {
                             navController.popBackStack()
                             navController.popBackStack()
-                        }
+                        },
+                        modifier = Modifier.testTag("meals_back")
                     ) {
                         Icon(
                             imageVector = Icons.Default.ArrowBack,
@@ -108,7 +111,8 @@ fun MealsScreen(
                     }
                 },
                 actions = {
-                    IconButton(onClick = { /* settings later */ }) {
+                    IconButton(onClick = { navController.navigate("settings") },
+                        modifier = Modifier.testTag("meals_settings_icon")) {
                         Icon(Icons.Filled.Settings, null, tint = C.OnBackground)
                     }
                 },
@@ -136,7 +140,9 @@ fun MealsScreen(
                     text = "Meals",
                     color = C.Primary,
                     fontSize = 20.sp,
-                    modifier = Modifier.align(Alignment.Center)
+                    modifier = Modifier
+                        .testTag("meals_title")
+                        .align(Alignment.Center)
                 )
             }
 
@@ -152,7 +158,8 @@ fun MealsScreen(
                 },
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                    .padding(horizontal = 16.dp, vertical = 8.dp)
+                    .testTag("meals_search"),
                 shape = RoundedCornerShape(12.dp),
                 colors = OutlinedTextFieldDefaults.colors(
                     unfocusedContainerColor = C.Surface,
@@ -166,13 +173,18 @@ fun MealsScreen(
             // Meal list ---------------------------------------------------------
             when {
                 isLoading -> {
-                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Box(Modifier
+                        .fillMaxSize()
+                        .testTag("meals_loading"),
+                        contentAlignment = Alignment.Center) {
                         CircularProgressIndicator(color = C.Primary)
                     }
                 }
 
                 filteredMeals.isEmpty() -> {
-                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Box(Modifier
+                        .fillMaxSize()
+                        .testTag("meals_empty"), contentAlignment = Alignment.Center) {
                         Text("No meals found.", color = C.OnSurfaceVariant)
                     }
                 }
@@ -181,7 +193,8 @@ fun MealsScreen(
                     LazyColumn(
                         modifier = Modifier
                             .fillMaxSize()
-                            .padding(horizontal = 16.dp, vertical = 8.dp),
+                            .padding(horizontal = 16.dp, vertical = 8.dp)
+                            .testTag("meals_list"),
                         verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
                         items(filteredMeals) { meal ->
@@ -191,7 +204,8 @@ fun MealsScreen(
                                 onOpenRecipe = { url ->
                                     val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
                                     navController.context.startActivity(intent)
-                                }
+                                },
+                                modifier = Modifier.testTag("meal_card_${meal.id}")
                             )
                         }
                     }
@@ -210,7 +224,8 @@ fun MealsScreen(
 fun MealCard(
     meal: Meal,
     onAddMissing: () -> Unit,
-    onOpenRecipe: (String) -> Unit
+    onOpenRecipe: (String) -> Unit,
+    modifier: Modifier = Modifier
 ) {
     Surface(
         modifier = Modifier

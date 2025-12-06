@@ -1,224 +1,293 @@
 package com.example.helpinghand.ui.screens
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Phone
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.helpinghand.ui.theme.AppColors
-
-data class Contact(
-    val id: Int,
-    val name: String,
-    val phone: String,
-    val email: String = ""
-)
+import androidx.navigation.NavHostController
+import com.example.helpinghand.data.model.Contact
+import com.example.helpinghand.viewmodel.ContactsViewModel
+import com.example.helpinghand.ui.theme.ShoppingColors as C
+import android.content.Intent
+import android.net.Uri
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
+import androidx.core.net.toUri
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ContactsScreen(
-    onNavigateBack: () -> Unit
+    navController: NavHostController,
+    viewModel: ContactsViewModel
 ) {
-    val contacts = remember {
-        listOf(
-            Contact(1, "Alice Anderson", "(555) 123-4567", "alice@email.com"),
-            Contact(2, "Amy Adams", "(555) 234-5678", "amy@email.com"),
-            Contact(3, "Bob Brown", "(555) 345-6789", "bob@email.com"),
-            Contact(4, "Barbara Bell", "(555) 456-7890", "barbara@email.com"),
-            Contact(5, "Charlie Chen", "(555) 567-8901", "charlie@email.com"),
-            Contact(6, "Christina Clark", "(555) 678-9012", "christina@email.com"),
-            Contact(7, "David Davis", "(555) 789-0123", "david@email.com"),
-            Contact(8, "Diana Diaz", "(555) 890-1234", "diana@email.com"),
-            Contact(9, "Emily Evans", "(555) 901-2345", "emily@email.com"),
-            Contact(10, "Frank Foster", "(555) 012-3456", "frank@email.com"),
-            Contact(11, "George Garcia", "(555) 123-4568", "george@email.com"),
-            Contact(12, "Hannah Hill", "(555) 234-5679", "hannah@email.com")
-        ).sortedBy { it.name }
-    }
+    val contacts by viewModel.contacts.collectAsState()
 
-    val groupedContacts = contacts.groupBy { it.name.first().uppercaseChar() }
+    var showDialog by remember { mutableStateOf(false) }
+    var nameField by remember { mutableStateOf(TextFieldValue("")) }
+    var phoneField by remember { mutableStateOf(TextFieldValue("")) }
+    var emailField by remember { mutableStateOf(TextFieldValue("")) }
 
-    Scaffold(
-        containerColor = AppColors.Background
-    ) { paddingValues ->
+    Scaffold(containerColor = C.Background) { paddingValues ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
+                .testTag("contacts_screen")
         ) {
-            // Status Bar
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 24.dp, vertical = 10.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = "9:30",
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Medium,
-                    color = AppColors.OnBackground
-                )
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(4.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Icon(
-                        imageVector = Icons.Filled.SignalCellularAlt,
-                        contentDescription = "Signal",
-                        tint = AppColors.OnBackground,
-                        modifier = Modifier.size(16.dp)
-                    )
-                    Icon(
-                        imageVector = Icons.Filled.Wifi,
-                        contentDescription = "WiFi",
-                        tint = AppColors.OnBackground,
-                        modifier = Modifier.size(16.dp)
-                    )
-                    Icon(
-                        imageVector = Icons.Filled.BatteryFull,
-                        contentDescription = "Battery",
-                        tint = AppColors.OnBackground,
-                        modifier = Modifier.size(16.dp)
-                    )
-                }
-            }
 
-            // Top App Bar
+            // --- Top App Bar  ---
             TopAppBar(
+                navigationIcon = {
+                    IconButton(onClick = { navController.popBackStack() },
+                        modifier = Modifier.testTag("contacts_back")) {
+                        Icon(
+                            imageVector = Icons.Default.ArrowBack,
+                            contentDescription = "Back to Dashboard",
+                            tint = C.OnBackground
+                        )
+                    }
+                },
                 title = {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
-                        Surface(
-                            shape = CircleShape,
-                            color = AppColors.Primary,
-                            modifier = Modifier.size(40.dp)
+                        Box(
+                            modifier = Modifier
+                                .size(36.dp)
+                                .background(C.Primary, CircleShape),
+                            contentAlignment = Alignment.Center
                         ) {
-                            Box(
-                                contentAlignment = Alignment.Center,
-                                modifier = Modifier.fillMaxSize()
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Filled.Person,
-                                    contentDescription = "Profile",
-                                    tint = Color.White,
-                                    modifier = Modifier.size(24.dp)
-                                )
-                            }
+                            Icon(
+                                imageVector = Icons.Filled.Person,
+                                contentDescription = "Profile",
+                                tint = C.Surface
+                            )
                         }
                         Text(
                             text = "Contacts",
-                            fontSize = 22.sp,
-                            color = AppColors.OnBackground
-                        )
-                    }
-                },
-                navigationIcon = {
-                    IconButton(onClick = onNavigateBack) {
-                        Icon(
-                            imageVector = Icons.Filled.ArrowBack,
-                            contentDescription = "Back",
-                            tint = AppColors.OnBackground
+                            fontSize = 20.sp,
+                            color = C.OnBackground,
+                            modifier = Modifier.testTag("contacts_title")
                         )
                     }
                 },
                 actions = {
-                    IconButton(onClick = { /* Add contact */ }) {
+                    IconButton(onClick = { navController.navigate("settings") },
+                        modifier = Modifier.testTag("contacts_settings_icon")) {
                         Icon(
-                            imageVector = Icons.Filled.Add,
-                            contentDescription = "Add",
-                            tint = AppColors.OnBackground
+                            imageVector = Icons.Filled.Settings,
+                            contentDescription = "Settings",
+                            tint = C.OnBackground
                         )
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = AppColors.Background
+                    containerColor = C.Background
                 )
             )
 
-            // Contacts List with Sticky Headers
-            LazyColumn(
+            // bit of background before the SurfaceVariant block
+            Spacer(modifier = Modifier.height(8.dp))
+
+            Surface(
                 modifier = Modifier
-                    .weight(1f)
-                    .padding(horizontal = 16.dp)
+                    .fillMaxWidth()
+                    .weight(1f),
+                color = C.SurfaceVariant
             ) {
-                groupedContacts.forEach { (letter, contactsForLetter) ->
-                    stickyHeader {
+                Column(
+                    modifier = Modifier.fillMaxSize()
+                ) {
+
+                    // Centered Add button
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 8.dp, bottom = 12.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
                         Surface(
-                            modifier = Modifier.fillMaxWidth(),
-                            color = AppColors.Background
+                            modifier = Modifier
+                                .width(160.dp)
+                                .height(40.dp)
+                                .shadow(6.dp, RoundedCornerShape(999.dp), clip = false)
+                                .clickable { showDialog = true }
+                                .testTag("contacts_add_button"),
+                            shape = RoundedCornerShape(999.dp),
+                            color = C.SurfaceVariant,
+                            tonalElevation = 4.dp,
+                            border = BorderStroke(1.5.dp, C.Primary.copy(alpha = 0.6f))
                         ) {
-                            Text(
-                                text = letter.toString(),
-                                fontSize = 18.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = AppColors.Primary,
-                                modifier = Modifier.padding(vertical = 12.dp, horizontal = 4.dp)
-                            )
+                            Row(
+                                modifier = Modifier.fillMaxSize(),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Filled.Add,
+                                    contentDescription = "Add contact",
+                                    tint = C.Primary
+                                )
+                            }
                         }
                     }
 
-                    items(contactsForLetter) { contact ->
-                        ContactCard(contact)
-                        Spacer(modifier = Modifier.height(8.dp))
+                    // Group contacts alphabetically
+                    val grouped = contacts.groupBy { it.name.firstOrNull()?.uppercaseChar() ?: '#' }
+
+                    LazyColumn(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(horizontal = 16.dp, vertical = 4.dp)
+                            .testTag("contacts_list"),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        grouped.toSortedMap().forEach { (letter, listForLetter) ->
+
+                            stickyHeader {
+                                Surface(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .background(C.SurfaceVariant),
+                                    color = Color.Transparent
+                                ) {
+                                    Text(
+                                        text = letter.toString(),
+                                        fontSize = 18.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = C.Primary,
+                                        modifier = Modifier
+                                            .padding(vertical = 8.dp, horizontal = 4.dp)
+                                    )
+                                }
+                            }
+
+                            items(listForLetter, key = { it.id }) { contact ->
+                                ContactCard(
+                                    contact = contact,
+                                    onDelete = { viewModel.deleteContact(contact) }
+                                )
+                            }
+                        }
                     }
                 }
             }
+        }
 
-            // Gesture Bar
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(32.dp)
-                    .background(AppColors.GestureBar),
-                contentAlignment = Alignment.Center
-            ) {
-                Box(
-                    modifier = Modifier
-                        .width(48.dp)
-                        .height(4.dp)
-                        .background(
-                            AppColors.OnBackground,
-                            shape = RoundedCornerShape(2.dp)
+        // --- Add Contact Dialog ---
+        if (showDialog) {
+            AlertDialog(
+                onDismissRequest = { showDialog = false },
+                confirmButton = {
+                    TextButton(
+                        onClick = {
+                            val name = nameField.text.trim()
+                            val phone = phoneField.text.trim()
+                            val email = emailField.text.trim()
+
+                            if (name.isNotEmpty() && (phone.isNotEmpty() || email.isNotEmpty())) {
+                                viewModel.addContact(name, phone, email)
+                                nameField = TextFieldValue("")
+                                phoneField = TextFieldValue("")
+                                emailField = TextFieldValue("")
+                                showDialog = false
+                            }
+                        },
+                        modifier = Modifier.testTag("contacts_dialog_confirm")
+                    ) {
+                        Text("Add", color = C.Primary)
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showDialog = false },
+                        modifier = Modifier.testTag("contacts_dialog_cancel")) {
+                        Text("Cancel", color = C.OnSurfaceVariant)
+                    }
+                },
+                title = { Text("Add Contact", color = C.OnBackground) },
+                text = {
+                    Column {
+                        OutlinedTextField(
+                            value = nameField,
+                            onValueChange = { nameField = it },
+                            label = { Text("Name") },
+                            singleLine = true
                         )
-                )
-            }
+                        Spacer(modifier = Modifier.height(8.dp))
+                        OutlinedTextField(
+                            value = phoneField,
+                            onValueChange = { phoneField = it },
+                            label = { Text("Phone (optional)") },
+                            singleLine = true
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        OutlinedTextField(
+                            value = emailField,
+                            onValueChange = { emailField = it },
+                            label = { Text("Email (optional)") },
+                            singleLine = true
+                        )
+                    }
+                },
+                containerColor = C.Surface
+            )
         }
     }
 }
 
 @Composable
-private fun ContactCard(contact: Contact) {
+private fun ContactCard(
+    contact: Contact,
+    onDelete: () -> Unit
+) {
+    val context = LocalContext.current
+
     Surface(
-        shape = RoundedCornerShape(16.dp),
-        color = AppColors.Surface,
-        shadowElevation = 2.dp,
-        modifier = Modifier.fillMaxWidth()
+        modifier = Modifier
+            .fillMaxWidth()
+            .shadow(
+                elevation = 8.dp,
+                shape = RoundedCornerShape(24.dp),
+                clip = false
+            ),
+        shape = RoundedCornerShape(24.dp),
+        color = C.Surface,
+        tonalElevation = 6.dp,
+        border = BorderStroke(1.5.dp, C.Primary.copy(alpha = 0.6f))
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp),
+                .heightIn(min = 72.dp)
+                .padding(horizontal = 20.dp, vertical = 10.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             // Avatar
             Surface(
                 shape = CircleShape,
-                color = AppColors.Primary,
+                color = C.Primary,
                 modifier = Modifier.size(48.dp)
             ) {
                 Box(
@@ -226,7 +295,7 @@ private fun ContactCard(contact: Contact) {
                     modifier = Modifier.fillMaxSize()
                 ) {
                     Text(
-                        text = contact.name.first().toString(),
+                        text = contact.name.firstOrNull()?.uppercaseChar()?.toString() ?: "?",
                         fontSize = 20.sp,
                         fontWeight = FontWeight.Bold,
                         color = Color.White
@@ -236,7 +305,7 @@ private fun ContactCard(contact: Contact) {
 
             Spacer(modifier = Modifier.width(16.dp))
 
-            // Contact Info
+            // Contact info
             Column(
                 modifier = Modifier.weight(1f)
             ) {
@@ -244,30 +313,50 @@ private fun ContactCard(contact: Contact) {
                     text = contact.name,
                     fontSize = 16.sp,
                     fontWeight = FontWeight.Medium,
-                    color = AppColors.OnBackground
+                    color = C.OnBackground
                 )
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
                     text = contact.phone,
                     fontSize = 14.sp,
-                    color = AppColors.OnSurfaceVariant
+                    color = C.OnSurfaceVariant
                 )
                 if (contact.email.isNotEmpty()) {
                     Text(
                         text = contact.email,
                         fontSize = 12.sp,
-                        color = AppColors.OnSurfaceVariant
+                        color = C.OnSurfaceVariant
                     )
                 }
             }
 
-            // Call button
-            IconButton(onClick = { /* Make call */ }) {
-                Icon(
-                    imageVector = Icons.Filled.Phone,
-                    contentDescription = "Call",
-                    tint = AppColors.Primary
-                )
+            // Actions: call / delete
+            Column(
+                horizontalAlignment = Alignment.End,
+                verticalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                IconButton(onClick = {
+                    val phone = contact.phone.trim()
+                    if (phone.isNotEmpty()) {
+                        val intent = Intent(Intent.ACTION_DIAL).apply {
+                            data = "tel:$phone".toUri()
+                        }
+                        context.startActivity(intent)
+                    }
+                }) {
+                    Icon(
+                        imageVector = Icons.Filled.Phone,
+                        contentDescription = "Call",
+                        tint = C.Primary
+                    )
+                }
+                IconButton(onClick = onDelete) {
+                    Icon(
+                        imageVector = Icons.Filled.Delete,
+                        contentDescription = "Delete contact",
+                        tint = C.OnSurfaceVariant
+                    )
+                }
             }
         }
     }
