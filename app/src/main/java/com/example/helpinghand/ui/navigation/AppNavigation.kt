@@ -14,6 +14,7 @@ import com.example.helpinghand.ui.screens.ContactsScreen
 import com.example.helpinghand.ui.screens.CleaningReminderScreen
 import com.example.helpinghand.ui.viewmodel.ShoppingCartViewModel
 import com.example.helpinghand.viewmodel.MealsViewModel
+import com.example.helpinghand.ui.screens.DoctorAppointmentsScreen
 
 
 @Composable
@@ -26,10 +27,13 @@ fun AppNavigation() {
         composable("shopping") { ShoppingCartScreen(navController, shoppingCartViewModel, mealsViewModel) }
         composable("meals") { MealsScreen(navController, mealsViewModel) }
         composable("bills") { Text("Bills Screen Coming Soon") }
-        composable("appointments") { Text("Appointments Screen Coming Soon") }
+        composable("appointments") {
+            DoctorAppointmentsScreen(
+                navController = navController
+            )
+        }
         composable("settings") {
             SettingsScreen(
-                //i dont really know what to do here so sorry Dawson :')
                 onNavigateBack = { navController.popBackStack()}
             )
         }
