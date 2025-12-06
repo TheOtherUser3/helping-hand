@@ -165,10 +165,10 @@ fun DashboardScreen(
 
 @Composable
 private fun DashboardTilePng(
+    modifier: Modifier = Modifier,
     resId: Int,
     count: Int? = null,
     extraText: String? = null,
-    modifier: Modifier = Modifier,
     shape: RoundedCornerShape,
     borderColor: Color,
     onClick: () -> Unit
@@ -229,7 +229,7 @@ private fun FullWidthContactsTile(
 ) {
     Surface(
         onClick = onClick,
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
             .height(140.dp)
             .shadow(8.dp, shape = shape, clip = false),

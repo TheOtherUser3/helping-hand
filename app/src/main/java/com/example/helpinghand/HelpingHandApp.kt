@@ -31,7 +31,14 @@ class HelpingHandApp : Application() {
         database = Room.databaseBuilder(
             applicationContext,
             AppDatabase::class.java,
-            "helping_hand_db"
+            if (BuildConfig.DEBUG && isRunningTests()) {
+                "helping_hand_test_db"
+            } else {
+                "helping_hand_db"
+            }
+
+
+
         )
             .fallbackToDestructiveMigration()
             .build()
@@ -58,3 +65,13 @@ class HelpingHandApp : Application() {
         )
     }
 }
+
+private fun isRunningTests(): Boolean {
+    return try {
+        Class.forName("androidx.test.platform.app.InstrumentationRegistry")
+        true
+    } catch (e: ClassNotFoundException) {
+        false
+    }
+}
+
