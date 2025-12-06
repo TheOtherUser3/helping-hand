@@ -12,13 +12,15 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
-import com.example.helpinghand.HelpingHandApp
-import com.example.helpinghand.data.database.SettingsRepository
-import com.example.helpinghand.ui.screens.*
-import com.example.helpinghand.viewmodel.*
-import kotlinx.coroutines.launch
-import androidx.compose.runtime.LaunchedEffect
-import com.example.helpinghand.AppLogger
+import com.example.helpinghand.ui.screens.DashboardScreen
+import com.example.helpinghand.ui.screens.ShoppingCartScreen
+import com.example.helpinghand.ui.screens.MealsScreen
+import com.example.helpinghand.ui.screens.SettingsScreen
+import com.example.helpinghand.ui.screens.ContactsScreen
+import com.example.helpinghand.ui.screens.CleaningReminderScreen
+import com.example.helpinghand.ui.viewmodel.ShoppingCartViewModel
+import com.example.helpinghand.viewmodel.MealsViewModel
+import com.example.helpinghand.ui.screens.DoctorAppointmentsScreen
 
 
 @RequiresApi(Build.VERSION_CODES.O)
@@ -85,20 +87,14 @@ fun AppNavigation(
         }
 
         composable("bills") { Text("Bills Screen Coming Soon") }
-        composable("appointments") { Text("Appointments Screen Coming Soon") }
-
+        composable("appointments") {
+            DoctorAppointmentsScreen(
+                navController = navController
+            )
+        }
         composable("settings") {
             SettingsScreen(
-                hasLightSensor = hasLightSensor,
-                isDynamicTheme = dynamicThemeEnabled,
-                onDynamicThemeChange = { enabled ->
-                    scope.launch { settingsRepository.setDynamicTheme(enabled) }
-                },
-                isDarkMode = darkMode,
-                onDarkModeChange = { enabled ->
-                    scope.launch { settingsRepository.setDarkMode(enabled) }
-                },
-                navController = navController
+                onNavigateBack = { navController.popBackStack()}
             )
         }
 
