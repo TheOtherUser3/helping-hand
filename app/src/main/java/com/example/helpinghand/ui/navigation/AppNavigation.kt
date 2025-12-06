@@ -31,6 +31,8 @@ import com.example.helpinghand.viewmodel.ContactsViewModel
 import com.example.helpinghand.viewmodel.ContactsViewModelFactory
 import com.example.helpinghand.viewmodel.DashboardViewModel
 import com.example.helpinghand.viewmodel.DashboardViewModelFactory
+import com.example.helpinghand.viewmodel.DoctorAppointmentsViewModel
+import com.example.helpinghand.viewmodel.DoctorAppointmentsViewModelFactory
 import com.example.helpinghand.viewmodel.MealsViewModelFactory
 import com.example.helpinghand.viewmodel.ShoppingCartViewModelFactory
 import kotlinx.coroutines.launch
@@ -73,6 +75,9 @@ fun AppNavigation(
     val contactsViewModel: ContactsViewModel = viewModel(
         factory = ContactsViewModelFactory(db.contactDao())
     )
+    val doctorAppointmentsViewModel: DoctorAppointmentsViewModel = viewModel(
+        factory = DoctorAppointmentsViewModelFactory(db.doctorAppointmentDao())
+    )
 
     val darkMode by settingsRepository.darkModeEnabled.collectAsState(initial = false)
     val dynamicThemeEnabled by settingsRepository.dynamicThemeEnabled.collectAsState(initial = false)
@@ -102,7 +107,8 @@ fun AppNavigation(
         composable("bills") { Text("Bills Screen Coming Soon") }
         composable("appointments") {
             DoctorAppointmentsScreen(
-                navController = navController
+                navController = navController,
+                viewModel = doctorAppointmentsViewModel
             )
         }
         composable("settings") {

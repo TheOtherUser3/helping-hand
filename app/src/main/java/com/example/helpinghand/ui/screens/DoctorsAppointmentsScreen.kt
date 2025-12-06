@@ -2,6 +2,7 @@
 
 package com.example.helpinghand.ui.screens
 
+import android.content.Intent
 import android.os.Build
 import androidx.annotation.RequiresApi
 import androidx.compose.foundation.background
@@ -19,109 +20,36 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavHostController
+import com.example.helpinghand.data.model.DoctorAppointment
+import com.example.helpinghand.data.model.formatPhoneNumber
 import com.example.helpinghand.ui.theme.ShoppingColors as C
+import com.example.helpinghand.viewmodel.DoctorAppointmentsViewModel
 import java.time.LocalDate
-import java.time.format.DateTimeFormatter
-import java.time.temporal.ChronoUnit
+import androidx.core.net.toUri
 
-// Data classes
-data class DoctorAppointment(
-    val id: Int,
-    val doctorName: String,
-    val type: AppointmentType,
-    val lastVisitDate: LocalDate?,
-    val nextVisitDate: LocalDate?,
-    val phoneNumber: String = "",
-    val officeName: String = "",
-    val intervalMonths: Int = 6,
-    val documents: List<String> = emptyList()
-) {
-    @RequiresApi(Build.VERSION_CODES.O)
-    fun getNextVisitText(): String {
-        if (nextVisitDate == null && lastVisitDate == null) {
-            return "No visits scheduled"
-        }
+private const val MAX_NAME_CHARS = 60
+private const val MAX_PHONE_CHARS = 20
+private const val MAX_OFFICE_CHARS = 60
 
-        val today = LocalDate.now()
-
-        return when {
-            nextVisitDate != null -> {
-                val daysUntil = ChronoUnit.DAYS.between(today, nextVisitDate)
-                when {
-                    daysUntil < 0 -> "Overdue by ${-daysUntil} days"
-                    daysUntil == 0L -> "Today"
-                    daysUntil < 7 -> "In $daysUntil days"
-                    daysUntil < 30 -> "In ${daysUntil / 7} weeks"
-                    else -> "In ${daysUntil / 30} months"
-                }
-            }
-            lastVisitDate != null -> {
-                val monthsAgo = ChronoUnit.MONTHS.between(lastVisitDate, today)
-                "Last visit ${monthsAgo}mo ago"
-            }
-            else -> "No visits scheduled"
-        }
-    }
-
-    @RequiresApi(Build.VERSION_CODES.O)
-    fun getFormattedNextDate(): String {
-        return nextVisitDate?.format(DateTimeFormatter.ofPattern("MMM dd, yyyy")) ?: "Not set"
-    }
-}
-
-enum class AppointmentType {
-    DOCTOR,
-    DENTIST,
-    SPECIALIST
+enum class AppointmentTypeUi {
+    DOCTOR, DENTIST, SPECIALIST
 }
 
 @RequiresApi(Build.VERSION_CODES.O)
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DoctorAppointmentsScreen(
-    navController: NavHostController
+    navController: NavHostController,
+    viewModel: DoctorAppointmentsViewModel
 ) {
-    var appointments by remember {
-        mutableStateOf(
-            listOf(
-                DoctorAppointment(
-                    id = 1,
-                    doctorName = "Dr XXX",
-                    type = AppointmentType.DOCTOR,
-                    lastVisitDate = LocalDate.now().minusMonths(5),
-                    nextVisitDate = LocalDate.now().plusMonths(1),
-                    phoneNumber = "(555) 123-4567",
-                    officeName = "Main Medical Center"
-                ),
-                DoctorAppointment(
-                    id = 2,
-                    doctorName = "Dr XXX",
-                    type = AppointmentType.DOCTOR,
-                    lastVisitDate = null,
-                    nextVisitDate = LocalDate.now().plusWeeks(2),
-                    phoneNumber = "(555) 234-5678",
-                    officeName = "Family Health Clinic"
-                ),
-                DoctorAppointment(
-                    id = 3,
-                    doctorName = "Eye Clinic",
-                    type = AppointmentType.SPECIALIST,
-                    lastVisitDate = null,
-                    nextVisitDate = LocalDate.now().plusMonths(3),
-                    phoneNumber = "555-5555",
-                    officeName = "Vision Specialists"
-                )
-            )
-        )
-    }
+    val appointments by viewModel.appointments.collectAsState()
 
-    var showAddContactDialog by remember { mutableStateOf(false) }
-    var showAddDocumentDialog by remember { mutableStateOf(false) }
+    var showAddDialog by remember { mutableStateOf(false) }
 
     val groupedAppointments = appointments.groupBy { it.type }
 
@@ -160,14 +88,14 @@ fun DoctorAppointmentsScreen(
                     }
                 },
                 actions = {
-                    IconButton(onClick = { /* settings */ }) {
+                    IconButton(onClick = { navController.navigate("settings") }) {
                         Icon(Icons.Filled.Settings, null, tint = C.OnBackground)
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = C.Background)
             )
 
-            // --- Controls Row (Add buttons) ---
+            // --- Controls Row (Add button) ---
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -176,18 +104,8 @@ fun DoctorAppointmentsScreen(
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 AssistChip(
-                    onClick = { showAddContactDialog = true },
-                    label = { Text("Add New Contact", color = C.Primary, fontSize = 14.sp) },
-                    leadingIcon = {
-                        Icon(Icons.Filled.Add, contentDescription = null, tint = C.Primary)
-                    },
-                    colors = AssistChipDefaults.assistChipColors(containerColor = C.Surface),
-                    modifier = Modifier.weight(1f)
-                )
-
-                AssistChip(
-                    onClick = { showAddDocumentDialog = true },
-                    label = { Text("Add New Document", color = C.Primary, fontSize = 14.sp) },
+                    onClick = { showAddDialog = true },
+                    label = { Text("Add Appointment", color = C.Primary, fontSize = 14.sp) },
                     leadingIcon = {
                         Icon(Icons.Filled.Add, contentDescription = null, tint = C.Primary)
                     },
@@ -209,14 +127,14 @@ fun DoctorAppointmentsScreen(
                         .padding(horizontal = 16.dp),
                     contentPadding = PaddingValues(vertical = 8.dp)
                 ) {
-                    // Group by appointment type with sticky headers
-                    listOf(
-                        AppointmentType.DOCTOR to "Doctors",
-                        AppointmentType.DENTIST to "Dentist",
-                        AppointmentType.SPECIALIST to "Specialists"
-                    ).forEach { (type, label) ->
-                        val appointmentsForType = groupedAppointments[type] ?: emptyList()
+                    val sections = listOf(
+                        "Doctor" to "Doctors",
+                        "Dentist" to "Dentists",
+                        "Specialist" to "Specialists"
+                    )
 
+                    sections.forEach { (typeKey, label) ->
+                        val appointmentsForType = groupedAppointments[typeKey] ?: emptyList()
                         if (appointmentsForType.isNotEmpty()) {
                             stickyHeader {
                                 Surface(
@@ -228,18 +146,19 @@ fun DoctorAppointmentsScreen(
                                         fontSize = 16.sp,
                                         fontWeight = FontWeight.Bold,
                                         color = C.Primary,
-                                        modifier = Modifier.padding(vertical = 12.dp, horizontal = 4.dp)
+                                        modifier = Modifier.padding(
+                                            vertical = 12.dp,
+                                            horizontal = 4.dp
+                                        )
                                     )
                                 }
                             }
 
-                            items(appointmentsForType) { appointment ->
+                            items(appointmentsForType, key = { it.id }) { appointment ->
                                 AppointmentRow(
                                     appointment = appointment,
-                                    onUpdateAppointment = { updated ->
-                                        appointments = appointments.map {
-                                            if (it.id == updated.id) updated else it
-                                        }
+                                    onUpdateNextVisit = { newDate ->
+                                        viewModel.updateNextVisit(appointment, newDate)
                                     }
                                 )
                                 Divider(color = C.OnSurfaceVariant.copy(alpha = 0.15f))
@@ -250,34 +169,27 @@ fun DoctorAppointmentsScreen(
             }
         }
 
-        // --- Add Contact Dialog ---
-        if (showAddContactDialog) {
-            AddContactDialog(
-                onDismiss = { showAddContactDialog = false },
-                onAdd = { newAppointment ->
-                    appointments = appointments + newAppointment
-                    showAddContactDialog = false
+        // --- Add Appointment Dialog ---
+        if (showAddDialog) {
+            AddAppointmentDialog(
+                onDismiss = { showAddDialog = false },
+                onAdd = { name, typeString, phone, office, intervalMonths ->
+                    viewModel.addAppointment(name, typeString, phone, office, intervalMonths)
+                    showAddDialog = false
                 }
-            )
-        }
-
-        // --- Add Document Dialog ---
-        if (showAddDocumentDialog) {
-            AddDocumentDialog(
-                onDismiss = { showAddDocumentDialog = false },
-                onAdd = { /* Handle document upload */ }
             )
         }
     }
 }
 
 @RequiresApi(Build.VERSION_CODES.O)
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun AppointmentRow(
     appointment: DoctorAppointment,
-    onUpdateAppointment: (DoctorAppointment) -> Unit
+    onUpdateNextVisit: (LocalDate) -> Unit
 ) {
+    val context = LocalContext.current
+
     var expanded by remember { mutableStateOf(false) }
     var showDatePicker by remember { mutableStateOf(false) }
 
@@ -289,8 +201,7 @@ private fun AppointmentRow(
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
+            horizontalArrangement = Arrangement.SpaceBetween
         ) {
             Column(modifier = Modifier.weight(1f)) {
                 Text(
@@ -306,7 +217,6 @@ private fun AppointmentRow(
                     fontSize = 14.sp
                 )
             }
-
             Icon(
                 imageVector = if (expanded) Icons.Filled.ExpandLess else Icons.Filled.ExpandMore,
                 contentDescription = if (expanded) "Collapse" else "Expand",
@@ -315,11 +225,10 @@ private fun AppointmentRow(
             )
         }
 
-        // Expanded details
         if (expanded) {
             Spacer(modifier = Modifier.height(12.dp))
 
-            // Next Appointment Section
+            // Next Appointment section
             Surface(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(8.dp),
@@ -348,9 +257,7 @@ private fun AppointmentRow(
                         )
                     }
 
-                    IconButton(
-                        onClick = { showDatePicker = true }
-                    ) {
+                    IconButton(onClick = { showDatePicker = true }) {
                         Icon(
                             imageVector = Icons.Filled.CalendarToday,
                             contentDescription = "Set appointment date",
@@ -362,7 +269,7 @@ private fun AppointmentRow(
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            if (appointment.phoneNumber.isNotEmpty()) {
+            if (appointment.phoneRaw.isNotBlank()) {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -377,12 +284,20 @@ private fun AppointmentRow(
                             color = C.OnSurfaceVariant
                         )
                         Text(
-                            text = appointment.phoneNumber,
+                            text = appointment.displayPhone(),
                             fontSize = 14.sp,
                             color = C.OnBackground
                         )
                     }
-                    IconButton(onClick = { /* Call */ }) {
+                    IconButton(onClick = {
+                        val phone = formatPhoneNumber(appointment.phoneRaw).replace(" ", "")
+                        if (phone.isNotEmpty()) {
+                            val intent = Intent(Intent.ACTION_DIAL).apply {
+                                data = "tel:$phone".toUri()
+                            }
+                            context.startActivity(intent)
+                        }
+                    }) {
                         Icon(
                             imageVector = Icons.Filled.Phone,
                             contentDescription = "Call",
@@ -392,7 +307,7 @@ private fun AppointmentRow(
                 }
             }
 
-            if (appointment.officeName.isNotEmpty()) {
+            if (appointment.officeName.isNotBlank()) {
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(
                     text = "Office",
@@ -417,42 +332,18 @@ private fun AppointmentRow(
                 fontSize = 14.sp,
                 color = C.OnBackground
             )
-
-            if (appointment.documents.isNotEmpty()) {
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(
-                    text = "Documents",
-                    fontSize = 12.sp,
-                    color = C.OnSurfaceVariant
-                )
-                appointment.documents.forEach { doc ->
-                    Row(
-                        modifier = Modifier.padding(vertical = 2.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(
-                            imageVector = Icons.Filled.Description,
-                            contentDescription = "Document",
-                            tint = C.Primary,
-                            modifier = Modifier.size(16.dp)
-                        )
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text(
-                            text = doc,
-                            fontSize = 14.sp,
-                            color = C.OnBackground
-                        )
-                    }
-                }
-            }
         }
     }
 
-    // Date Picker Dialog
     if (showDatePicker) {
+        val initialMillis = appointment.nextVisitEpochDay
+            ?.let { LocalDate.ofEpochDay(it.toLong()) }
+            ?.toEpochDay()
+            ?.times(86_400_000)
+            ?: System.currentTimeMillis()
+
         val datePickerState = rememberDatePickerState(
-            initialSelectedDateMillis = appointment.nextVisitDate?.toEpochDay()?.times(86400000)
-                ?: System.currentTimeMillis()
+            initialSelectedDateMillis = initialMillis
         )
 
         DatePickerDialog(
@@ -461,10 +352,8 @@ private fun AppointmentRow(
                 TextButton(
                     onClick = {
                         datePickerState.selectedDateMillis?.let { millis ->
-                            val selectedDate = LocalDate.ofEpochDay(millis / 86400000)
-                            onUpdateAppointment(
-                                appointment.copy(nextVisitDate = selectedDate)
-                            )
+                            val selectedDate = LocalDate.ofEpochDay(millis / 86_400_000)
+                            onUpdateNextVisit(selectedDate)
                         }
                         showDatePicker = false
                     }
@@ -485,14 +374,14 @@ private fun AppointmentRow(
 
 @RequiresApi(Build.VERSION_CODES.O)
 @Composable
-private fun AddContactDialog(
+private fun AddAppointmentDialog(
     onDismiss: () -> Unit,
-    onAdd: (DoctorAppointment) -> Unit
+    onAdd: (name: String, type: String, phone: String, office: String, intervalMonths: Int) -> Unit
 ) {
     var doctorName by remember { mutableStateOf(TextFieldValue("")) }
     var phoneNumber by remember { mutableStateOf(TextFieldValue("")) }
     var officeName by remember { mutableStateOf(TextFieldValue("")) }
-    var selectedType by remember { mutableStateOf(AppointmentType.DOCTOR) }
+    var selectedType by remember { mutableStateOf(AppointmentTypeUi.DOCTOR) }
     var intervalMonths by remember { mutableStateOf("6") }
     var expanded by remember { mutableStateOf(false) }
 
@@ -502,19 +391,17 @@ private fun AddContactDialog(
             TextButton(
                 onClick = {
                     val name = doctorName.text.trim()
+                    val phone = phoneNumber.text.trim()
+                    val office = officeName.text.trim()
+                    val interval = intervalMonths.toIntOrNull() ?: 6
+
                     if (name.isNotEmpty()) {
-                        onAdd(
-                            DoctorAppointment(
-                                id = (0..10000).random(),
-                                doctorName = name,
-                                type = selectedType,
-                                lastVisitDate = null,
-                                nextVisitDate = LocalDate.now().plusMonths(intervalMonths.toLongOrNull() ?: 6),
-                                phoneNumber = phoneNumber.text.trim(),
-                                officeName = officeName.text.trim(),
-                                intervalMonths = intervalMonths.toIntOrNull() ?: 6
-                            )
-                        )
+                        val typeString = when (selectedType) {
+                            AppointmentTypeUi.DOCTOR -> "Doctor"
+                            AppointmentTypeUi.DENTIST -> "Dentist"
+                            AppointmentTypeUi.SPECIALIST -> "Specialist"
+                        }
+                        onAdd(name, typeString, phone, office, interval)
                     }
                 }
             ) {
@@ -526,7 +413,7 @@ private fun AddContactDialog(
                 Text("Cancel", color = C.OnSurfaceVariant)
             }
         },
-        title = { Text("Add New Contact", color = C.OnBackground) },
+        title = { Text("Add New Appointment", color = C.OnBackground) },
         text = {
             Column(
                 modifier = Modifier.fillMaxWidth(),
@@ -534,22 +421,26 @@ private fun AddContactDialog(
             ) {
                 OutlinedTextField(
                     value = doctorName,
-                    onValueChange = { doctorName = it },
+                    onValueChange = { new ->
+                        if (new.text.length <= MAX_NAME_CHARS) {
+                            doctorName = new
+                        }
+                    },
                     label = { Text("Doctor/Clinic Name") },
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true
                 )
 
-                // Type Dropdown
+                // Type dropdown
                 ExposedDropdownMenuBox(
                     expanded = expanded,
                     onExpandedChange = { expanded = !expanded }
                 ) {
                     OutlinedTextField(
-                        value = when(selectedType) {
-                            AppointmentType.DOCTOR -> "Doctor"
-                            AppointmentType.DENTIST -> "Dentist"
-                            AppointmentType.SPECIALIST -> "Specialist"
+                        value = when (selectedType) {
+                            AppointmentTypeUi.DOCTOR -> "Doctor"
+                            AppointmentTypeUi.DENTIST -> "Dentist"
+                            AppointmentTypeUi.SPECIALIST -> "Specialist"
                         },
                         onValueChange = {},
                         readOnly = true,
@@ -572,21 +463,21 @@ private fun AddContactDialog(
                         DropdownMenuItem(
                             text = { Text("Doctor") },
                             onClick = {
-                                selectedType = AppointmentType.DOCTOR
+                                selectedType = AppointmentTypeUi.DOCTOR
                                 expanded = false
                             }
                         )
                         DropdownMenuItem(
                             text = { Text("Dentist") },
                             onClick = {
-                                selectedType = AppointmentType.DENTIST
+                                selectedType = AppointmentTypeUi.DENTIST
                                 expanded = false
                             }
                         )
                         DropdownMenuItem(
                             text = { Text("Specialist") },
                             onClick = {
-                                selectedType = AppointmentType.SPECIALIST
+                                selectedType = AppointmentTypeUi.SPECIALIST
                                 expanded = false
                             }
                         )
@@ -595,7 +486,15 @@ private fun AddContactDialog(
 
                 OutlinedTextField(
                     value = phoneNumber,
-                    onValueChange = { phoneNumber = it },
+                    onValueChange = { new ->
+                        val text = new.text
+                        if (
+                            text.length <= MAX_PHONE_CHARS &&
+                            text.all { it.isDigit() || it == '-' || it == ' ' }
+                        ) {
+                            phoneNumber = new
+                        }
+                    },
                     label = { Text("Phone Number") },
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true
@@ -603,7 +502,11 @@ private fun AddContactDialog(
 
                 OutlinedTextField(
                     value = officeName,
-                    onValueChange = { officeName = it },
+                    onValueChange = { new ->
+                        if (new.text.length <= MAX_OFFICE_CHARS) {
+                            officeName = new
+                        }
+                    },
                     label = { Text("Office Name") },
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true
@@ -611,58 +514,14 @@ private fun AddContactDialog(
 
                 OutlinedTextField(
                     value = intervalMonths,
-                    onValueChange = { if (it.all { char -> char.isDigit() }) intervalMonths = it },
+                    onValueChange = { new ->
+                        if (new.all { it.isDigit() } && new.length <= 2) {
+                            intervalMonths = new
+                        }
+                    },
                     label = { Text("Visit Interval (months)") },
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true
-                )
-            }
-        },
-        containerColor = C.Surface
-    )
-}
-
-@Composable
-private fun AddDocumentDialog(
-    onDismiss: () -> Unit,
-    onAdd: () -> Unit
-) {
-    var documentName by remember { mutableStateOf(TextFieldValue("")) }
-
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        confirmButton = {
-            TextButton(
-                onClick = {
-                    if (documentName.text.trim().isNotEmpty()) {
-                        onAdd()
-                        onDismiss()
-                    }
-                }
-            ) {
-                Text("Add", color = C.Primary)
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text("Cancel", color = C.OnSurfaceVariant)
-            }
-        },
-        title = { Text("Add New Document", color = C.OnBackground) },
-        text = {
-            Column {
-                OutlinedTextField(
-                    value = documentName,
-                    onValueChange = { documentName = it },
-                    label = { Text("Document Name") },
-                    modifier = Modifier.fillMaxWidth(),
-                    singleLine = true
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(
-                    text = "Upload functionality coming soon",
-                    fontSize = 12.sp,
-                    color = C.OnSurfaceVariant
                 )
             }
         },
