@@ -26,6 +26,18 @@ private val dataStore: DataStore<Preferences>
     val darkModeEnabled: Flow<Boolean> =
         dataStore.data.map { prefs -> prefs[KEY_DARK_MODE] ?: false }
 
+    // Keep track of whether user has seen onboarding before
+    private val KEY_ONBOARDING_SHOWN = booleanPreferencesKey("onboarding_shown")
+
+    val onboardingShown: Flow<Boolean> =
+        dataStore.data.map { prefs -> prefs[KEY_ONBOARDING_SHOWN] ?: false }
+
+    suspend fun setOnboardingShown() {
+        dataStore.edit { prefs ->
+            prefs[KEY_ONBOARDING_SHOWN] = true
+        }
+    }
+
     val dynamicThemeEnabled: Flow<Boolean> =
         dataStore.data.map { prefs -> prefs[KEY_DYNAMIC_THEME] ?: false }
 

@@ -27,6 +27,7 @@ import com.example.helpinghand.ui.screens.DashboardScreen
 import com.example.helpinghand.ui.screens.DoctorAppointmentsScreen
 import com.example.helpinghand.ui.screens.LoginScreen
 import com.example.helpinghand.ui.screens.MealsScreen
+import com.example.helpinghand.ui.screens.OnboardingScreen
 import com.example.helpinghand.ui.screens.RegistrationScreen
 import com.example.helpinghand.ui.screens.SettingsScreen
 import com.example.helpinghand.ui.screens.ShoppingCartScreen
@@ -44,7 +45,6 @@ import com.example.helpinghand.viewmodel.MealsViewModel
 import com.example.helpinghand.viewmodel.MealsViewModelFactory
 import com.example.helpinghand.viewmodel.ShoppingCartViewModel
 import com.example.helpinghand.viewmodel.ShoppingCartViewModelFactory
-import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
 
 @RequiresApi(Build.VERSION_CODES.O)
@@ -101,17 +101,41 @@ fun AppNavigation(
     // Settings (DataStore)
     val darkMode by settingsRepository.darkModeEnabled.collectAsState(initial = false)
     val dynamicThemeEnabled by settingsRepository.dynamicThemeEnabled.collectAsState(initial = false)
+    val onboardingShown by settingsRepository.onboardingShown.collectAsState(initial = false)
     val scope = rememberCoroutineScope()
 
-    // Navigation gate: redirect based on auth
-    LaunchedEffect(currentUser) {
+    // Navigation gate: redirect based on auth, but allow onboarding and ignore null route
+    LaunchedEffect(currentUser, onboardingShown) {
         val route = navController.currentDestination?.route
-        if (currentUser == null && route != "login" && route != "register") {
+        AppLogger.d(
+            AppLogger.TAG_NAV,
+            "Auth gate: currentUser=${currentUser?.uid}, route=$route, onboardingShown=$onboardingShown"
+        )
+
+        // If navController hasn't set a destination yet, don't redirect
+        if (route == null) {
+            AppLogger.d(AppLogger.TAG_NAV, "Auth gate: route is null, skipping redirect")
+            return@LaunchedEffect
+        }
+
+        // While onboarding hasn't been completed and we're on onboarding, don't redirect
+        if (!onboardingShown && route == "onboarding") {
+            AppLogger.d(AppLogger.TAG_NAV, "Auth gate: onboarding active, skipping redirect")
+            return@LaunchedEffect
+        }
+
+        if (currentUser == null &&
+            route != "login" &&
+            route != "register" &&
+            route != "onboarding"
+        ) {
             AppLogger.d(AppLogger.TAG_NAV, "User null, forcing navigation to login")
             navController.navigate("login") {
                 popUpTo(0) { inclusive = true }
             }
-        } else if (currentUser != null && (route == "login" || route == "register")) {
+        } else if (currentUser != null &&
+            (route == "login" || route == "register")
+        ) {
             AppLogger.d(AppLogger.TAG_NAV, "User logged in, navigating to dashboard")
             navController.navigate("dashboard") {
                 popUpTo(0) { inclusive = true }
@@ -164,8 +188,27 @@ fun AppNavigation(
 
     NavHost(
         navController = navController,
-        startDestination = if (currentUser == null) "login" else "dashboard"
+        startDestination = when {
+            !onboardingShown -> "onboarding"
+            currentUser == null -> "login"
+            else -> "dashboard"
+        }
     ) {
+        // ONBOARDING
+
+        composable("onboarding") {
+            OnboardingScreen(
+                onFinish = {
+                    scope.launch {
+                        settingsRepository.setOnboardingShown()
+                    }
+                    navController.navigate("login") {
+                        popUpTo("onboarding") { inclusive = true }
+                    }
+                }
+            )
+        }
+
         // AUTH SCREENS
 
         composable("login") {
