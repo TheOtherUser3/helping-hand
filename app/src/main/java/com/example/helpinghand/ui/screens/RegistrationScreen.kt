@@ -7,7 +7,12 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.filled.Email
+import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -22,13 +27,14 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavHostController
 import com.example.helpinghand.ui.theme.ShoppingColors as C
+import com.example.helpinghand.viewmodel.AuthUiState
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun RegistrationScreen(
-    navController: NavHostController,
-    onRegisterSuccess: () -> Unit,
-    onRegister: (name: String, email: String, password: String) -> Unit
+    uiState: AuthUiState,
+    onRegister: (name: String, email: String, password: String) -> Unit,
+    navController: NavHostController
 ) {
     var name by remember { mutableStateOf("") }
     var email by remember { mutableStateOf("") }
@@ -36,7 +42,6 @@ fun RegistrationScreen(
     var confirmPassword by remember { mutableStateOf("") }
     var passwordVisible by remember { mutableStateOf(false) }
     var confirmPasswordVisible by remember { mutableStateOf(false) }
-    var isLoading by remember { mutableStateOf(false) }
 
     val passwordsMatch = password == confirmPassword
     val canRegister = name.isNotEmpty() &&
@@ -44,7 +49,7 @@ fun RegistrationScreen(
             password.isNotEmpty() &&
             confirmPassword.isNotEmpty() &&
             passwordsMatch &&
-            !isLoading
+            !uiState.isLoading
 
     Scaffold(containerColor = C.Background) { inner ->
         Box(
@@ -255,14 +260,22 @@ fun RegistrationScreen(
                     )
                 }
 
+                // Firebase error
+                if (uiState.errorMessage != null) {
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Text(
+                        text = uiState.errorMessage,
+                        color = MaterialTheme.colorScheme.error,
+                        fontSize = 12.sp,
+                        modifier = Modifier.align(Alignment.Start)
+                    )
+                }
+
                 Spacer(modifier = Modifier.height(24.dp))
 
                 // Register Button
                 Button(
-                    onClick = {
-                        isLoading = true
-                        onRegister(name, email, password)
-                    },
+                    onClick = { onRegister(name, email, password) },
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(56.dp),
@@ -270,7 +283,7 @@ fun RegistrationScreen(
                     shape = RoundedCornerShape(16.dp),
                     enabled = canRegister
                 ) {
-                    if (isLoading) {
+                    if (uiState.isLoading) {
                         CircularProgressIndicator(
                             modifier = Modifier.size(24.dp),
                             color = Color.White
@@ -298,7 +311,7 @@ fun RegistrationScreen(
                         fontWeight = FontWeight.Bold,
                         fontSize = 15.sp,
                         modifier = Modifier.clickable {
-                            navController.popBackStack()
+                            navController.navigate("login")
                         }
                     )
                 }

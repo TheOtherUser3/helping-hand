@@ -26,4 +26,11 @@ interface CleaningReminderDao {
     // For notifications: everything due today or earlier
     @Query("SELECT * FROM cleaning_reminders WHERE nextDueEpochDay <= :todayEpochDay")
     suspend fun getDueReminders(todayEpochDay: Int): List<CleaningReminder>
+
+    // Firebase functions
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertAll(items: List<CleaningReminder>)
+
+    @Query("DELETE FROM cleaning_reminders")
+    suspend fun deleteAll()
 }

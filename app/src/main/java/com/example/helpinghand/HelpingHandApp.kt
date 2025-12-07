@@ -9,6 +9,7 @@ import com.example.helpinghand.data.database.AppDatabase
 import com.example.helpinghand.data.database.SettingsRepository
 import com.example.helpinghand.data.database.settingsDataStore
 import com.example.helpinghand.work.CleaningReminderWorker
+import com.google.firebase.FirebaseApp
 import java.util.concurrent.TimeUnit
 
 class HelpingHandApp : Application() {
@@ -23,6 +24,14 @@ class HelpingHandApp : Application() {
     override fun onCreate() {
         super.onCreate()
 
+        // 1) Initialize Firebase BEFORE any FirebaseAuth / Firestore calls
+        FirebaseApp.initializeApp(this)
+        AppLogger.d(
+            AppLogger.TAG_VM,
+            "HelpingHandApp.onCreate - FirebaseApp initialized"
+        )
+
+        // 2) Initialize Room database
         AppLogger.d(
             AppLogger.TAG_VM,
             "HelpingHandApp.onCreate - initializing database and settingsRepository"
@@ -36,15 +45,14 @@ class HelpingHandApp : Application() {
             } else {
                 "helping_hand_db"
             }
-
-
-
         )
             .fallbackToDestructiveMigration()
             .build()
 
+        // 3) Initialize DataStore-backed settings repository
         settingsRepository = SettingsRepository(applicationContext.settingsDataStore)
 
+        // 4) Schedule background worker
         scheduleCleaningReminderWorker()
     }
 
@@ -74,4 +82,3 @@ private fun isRunningTests(): Boolean {
         false
     }
 }
-
