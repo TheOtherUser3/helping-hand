@@ -1,6 +1,7 @@
 package com.example.helpinghand.data.dao
 
 import androidx.room.*
+import com.example.helpinghand.data.model.CleaningReminder
 import com.example.helpinghand.data.model.ShoppingItem
 import kotlinx.coroutines.flow.Flow
 
@@ -30,4 +31,11 @@ interface ShoppingItemDao {
 
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     suspend fun insertItems(items: List<ShoppingItem>)
+
+    // Firebase functions
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertAll(items: List<ShoppingItem>)
+
+    @Query("DELETE FROM shopping_items")
+    suspend fun deleteAll()
 }

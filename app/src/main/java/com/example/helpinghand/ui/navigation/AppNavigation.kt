@@ -7,7 +7,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.compose.NavHost
@@ -16,17 +19,19 @@ import androidx.navigation.compose.rememberNavController
 import com.example.helpinghand.AppLogger
 import com.example.helpinghand.HelpingHandApp
 import com.example.helpinghand.data.database.SettingsRepository
-import com.example.helpinghand.ui.screens.DashboardScreen
-import com.example.helpinghand.ui.screens.ShoppingCartScreen
-import com.example.helpinghand.ui.screens.MealsScreen
-import com.example.helpinghand.ui.screens.SettingsScreen
-import com.example.helpinghand.ui.screens.ContactsScreen
+import com.example.helpinghand.data.household.HouseholdRepository
+import com.example.helpinghand.data.model.HouseholdMember
 import com.example.helpinghand.ui.screens.CleaningReminderScreen
-import com.example.helpinghand.viewmodel.ShoppingCartViewModel
-import com.example.helpinghand.viewmodel.MealsViewModel
+import com.example.helpinghand.ui.screens.ContactsScreen
+import com.example.helpinghand.ui.screens.DashboardScreen
 import com.example.helpinghand.ui.screens.DoctorAppointmentsScreen
 import com.example.helpinghand.ui.screens.LoginScreen
+import com.example.helpinghand.ui.screens.MealsScreen
 import com.example.helpinghand.ui.screens.RegistrationScreen
+import com.example.helpinghand.ui.screens.SettingsScreen
+import com.example.helpinghand.ui.screens.ShoppingCartScreen
+import com.example.helpinghand.viewmodel.AuthViewModel
+import com.example.helpinghand.viewmodel.AuthViewModelFactory
 import com.example.helpinghand.viewmodel.CleaningReminderViewModel
 import com.example.helpinghand.viewmodel.CleaningReminderViewModelFactory
 import com.example.helpinghand.viewmodel.ContactsViewModel
@@ -35,10 +40,12 @@ import com.example.helpinghand.viewmodel.DashboardViewModel
 import com.example.helpinghand.viewmodel.DashboardViewModelFactory
 import com.example.helpinghand.viewmodel.DoctorAppointmentsViewModel
 import com.example.helpinghand.viewmodel.DoctorAppointmentsViewModelFactory
+import com.example.helpinghand.viewmodel.MealsViewModel
 import com.example.helpinghand.viewmodel.MealsViewModelFactory
+import com.example.helpinghand.viewmodel.ShoppingCartViewModel
 import com.example.helpinghand.viewmodel.ShoppingCartViewModelFactory
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
-
 
 @RequiresApi(Build.VERSION_CODES.O)
 @Composable
@@ -47,7 +54,8 @@ fun AppNavigation(
     hasLightSensor: Boolean
 ) {
     val navController = rememberNavController()
-    // log each nav change
+
+    // Log each destination change for debugging
     LaunchedEffect(navController) {
         navController.addOnDestinationChangedListener { _, destination, arguments ->
             AppLogger.d(
@@ -57,11 +65,15 @@ fun AppNavigation(
         }
     }
 
-
     val app = LocalContext.current.applicationContext as HelpingHandApp
     val db = app.database
 
-    // ViewModels like you already had...
+    // Firebase auth viewmodel
+    val authViewModel: AuthViewModel = viewModel(factory = AuthViewModelFactory())
+    val authUiState by authViewModel.uiState.collectAsState()
+    val currentUser by authViewModel.currentUser.collectAsState()
+
+    // App feature viewmodels
     val shoppingCartViewModel: ShoppingCartViewModel = viewModel(
         factory = ShoppingCartViewModelFactory(db.shoppingItemDao())
     )
@@ -81,15 +93,108 @@ fun AppNavigation(
         factory = DoctorAppointmentsViewModelFactory(db.doctorAppointmentDao())
     )
 
+    // Household integration with Firebase
+    val householdRepository = remember { HouseholdRepository() }
+    var householdId by remember { mutableStateOf<String?>(null) }
+    var householdMembers by remember { mutableStateOf<List<HouseholdMember>>(emptyList()) }
+
+    // Settings (DataStore)
     val darkMode by settingsRepository.darkModeEnabled.collectAsState(initial = false)
     val dynamicThemeEnabled by settingsRepository.dynamicThemeEnabled.collectAsState(initial = false)
     val scope = rememberCoroutineScope()
 
-    NavHost(navController = navController, startDestination = "dashboard") {
-        //change to "login" when firebase is all good :)
+    // Navigation gate: redirect based on auth
+    LaunchedEffect(currentUser) {
+        val route = navController.currentDestination?.route
+        if (currentUser == null && route != "login" && route != "register") {
+            AppLogger.d(AppLogger.TAG_NAV, "User null, forcing navigation to login")
+            navController.navigate("login") {
+                popUpTo(0) { inclusive = true }
+            }
+        } else if (currentUser != null && (route == "login" || route == "register")) {
+            AppLogger.d(AppLogger.TAG_NAV, "User logged in, navigating to dashboard")
+            navController.navigate("dashboard") {
+                popUpTo(0) { inclusive = true }
+            }
+        }
+    }
+
+    // When the auth user changes, set up their user document and household
+    LaunchedEffect(currentUser) {
+        if (currentUser != null) {
+            AppLogger.d(AppLogger.TAG_VM, "Auth user changed -> ensure user and household")
+            try {
+                householdRepository.ensureUserDocument()
+                val id = householdRepository.getOrCreateHouseholdId()
+                AppLogger.d(AppLogger.TAG_VM, "Resolved householdId=$id")
+                householdId = id
+            } catch (e: Exception) {
+                AppLogger.e(
+                    AppLogger.TAG_VM,
+                    "Error initializing household: ${e.message}",
+                    e
+                )
+                householdId = null
+            }
+        } else {
+            AppLogger.d(AppLogger.TAG_VM, "No auth user, clearing household state")
+            householdId = null
+            householdMembers = emptyList()
+        }
+    }
+
+    // Observe members whenever the householdId changes
+    LaunchedEffect(householdId) {
+        val id = householdId
+        if (id != null) {
+            AppLogger.d(AppLogger.TAG_VM, "Starting member observation for householdId=$id")
+            householdRepository
+                .observeHouseholdMembers(id)
+                .collect { members ->
+                    AppLogger.d(
+                        AppLogger.TAG_VM,
+                        "Household members updated: count=${members.size}"
+                    )
+                    householdMembers = members
+                }
+        } else {
+            householdMembers = emptyList()
+        }
+    }
+
+    NavHost(
+        navController = navController,
+        startDestination = if (currentUser == null) "login" else "dashboard"
+    ) {
+        // AUTH SCREENS
+
+        composable("login") {
+            LoginScreen(
+                uiState = authUiState,
+                onLogin = { email, password ->
+                    authViewModel.login(email, password)
+                },
+                navController = navController
+            )
+        }
+
+        composable("register") {
+            RegistrationScreen(
+                uiState = authUiState,
+                onRegister = { name, email, password ->
+                    authViewModel.register(name, email, password)
+                },
+                navController = navController
+            )
+        }
+
+        // MAIN APP SCREENS
 
         composable("dashboard") {
-            DashboardScreen(navController, dashboardViewModel)
+            DashboardScreen(
+                navController = navController,
+                viewModel = dashboardViewModel
+            )
         }
 
         composable("shopping") {
@@ -107,29 +212,14 @@ fun AppNavigation(
             )
         }
 
-        composable("bills") { Text("Bills Screen Coming Soon") }
+        composable("bills") {
+            Text("Bills Screen Coming Soon")
+        }
+
         composable("appointments") {
             DoctorAppointmentsScreen(
                 navController = navController,
                 viewModel = doctorAppointmentsViewModel
-            )
-        }
-        composable("settings") {
-            SettingsScreen(
-                hasLightSensor = hasLightSensor,
-                isDynamicTheme = dynamicThemeEnabled,
-                onDynamicThemeChange = { enabled ->
-                    scope.launch {
-                        settingsRepository.setDynamicTheme(enabled)
-                    }
-                },
-                isDarkMode = darkMode,
-                onDarkModeChange = { enabled ->
-                    scope.launch {
-                        settingsRepository.setDarkMode(enabled)
-                    }
-                },
-                navController = navController
             )
         }
 
@@ -147,26 +237,49 @@ fun AppNavigation(
             )
         }
 
-        // In AppNavigation.kt
-        composable("login") {
-            LoginScreen(
+        composable("settings") {
+            val user = currentUser
+            SettingsScreen(
+                hasLightSensor = hasLightSensor,
+                isDynamicTheme = dynamicThemeEnabled,
+                onDynamicThemeChange = { enabled ->
+                    scope.launch {
+                        settingsRepository.setDynamicTheme(enabled)
+                    }
+                },
+                isDarkMode = darkMode,
+                onDarkModeChange = { enabled ->
+                    scope.launch {
+                        settingsRepository.setDarkMode(enabled)
+                    }
+                },
                 navController = navController,
-                onLoginSuccess = { navController.navigate("dashboard") },
-                onLogin = { email, password ->
-                    // Firebase: auth.signInWithEmailAndPassword(email, password)
-                }
-            )
-        }
-
-        composable("register") {
-            RegistrationScreen(
-                navController = navController,
-                onRegisterSuccess = { navController.navigate("dashboard") },
-                onRegister = { name, email, password ->
-                    // Firebase: auth.createUserWithEmailAndPassword(email, password)
+                currentUserName = user?.displayName ?: "Unknown user",
+                currentUserEmail = user?.email ?: "Unknown email",
+                householdMembers = householdMembers,
+                onAddHouseholdMember = { email ->
+                    val id = householdId
+                    if (id != null) {
+                        scope.launch {
+                            val success = householdRepository.addMemberByEmail(id, email)
+                            if (!success) {
+                                AppLogger.e(
+                                    AppLogger.TAG_VM,
+                                    "Failed to add member with email=$email"
+                                )
+                            }
+                        }
+                    } else {
+                        AppLogger.e(
+                            AppLogger.TAG_VM,
+                            "Cannot add member, householdId is null"
+                        )
+                    }
+                },
+                onLogout = {
+                    authViewModel.logout()
                 }
             )
         }
     }
 }
-

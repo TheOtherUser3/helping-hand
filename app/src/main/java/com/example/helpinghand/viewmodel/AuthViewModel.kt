@@ -47,30 +47,65 @@ class AuthViewModel(
     fun register(name: String, email: String, password: String) {
         val trimmedEmail = email.trim()
         val trimmedName = name.trim()
-        viewModelScope.launch {
-            _uiState.value = AuthUiState(isLoading = true)
-            auth.createUserWithEmailAndPassword(trimmedEmail, password)
-                .addOnCompleteListener { task ->
-                    if (task.isSuccessful) {
-                        val user = auth.currentUser
-                        if (user != null && trimmedName.isNotBlank()) {
-                            val profileUpdates =
-                                com.google.firebase.auth.UserProfileChangeRequest.Builder()
-                                    .setDisplayName(trimmedName)
-                                    .build()
-                            user.updateProfile(profileUpdates)
-                        }
-                        AppLogger.d(AppLogger.TAG_VM, "register success for $trimmedEmail")
-                        _currentUser.value = auth.currentUser
-                        _uiState.value = AuthUiState()
-                    } else {
-                        val msg = task.exception?.localizedMessage ?: "Registration failed"
-                        AppLogger.e(AppLogger.TAG_VM, "register FAILED: $msg", task.exception)
-                        _uiState.value = AuthUiState(isLoading = false, errorMessage = msg)
-                    }
-                }
+
+        if (trimmedEmail.isBlank() || password.isBlank()) {
+            _uiState.value = AuthUiState(
+                isLoading = false,
+                errorMessage = "Email and password are required."
+            )
+            return
         }
+
+        _uiState.value = AuthUiState(isLoading = true, errorMessage = null)
+        AppLogger.d(AppLogger.TAG_VM, "register: starting Firebase registration for $trimmedEmail")
+
+        auth.createUserWithEmailAndPassword(trimmedEmail, password)
+            .addOnCompleteListener { task ->
+                if (task.isSuccessful) {
+                    AppLogger.d(AppLogger.TAG_VM, "register: success for $trimmedEmail")
+                    // Optionally update display name:
+                    val user = auth.currentUser
+                    _currentUser.value = user
+                    _uiState.value = AuthUiState(isLoading = false, errorMessage = null)
+                } else {
+                    val ex = task.exception
+                    AppLogger.e(
+                        AppLogger.TAG_VM,
+                        "register: FAILED for $trimmedEmail exception=${ex?.javaClass?.simpleName} message=${ex?.message}",
+                        ex
+                    )
+
+                    val msg = when (ex) {
+                        is com.google.firebase.auth.FirebaseAuthException -> {
+                            val code = ex.errorCode
+                            AppLogger.e(
+                                AppLogger.TAG_VM,
+                                "register: FirebaseAuthException code=$code",
+                                ex
+                            )
+                            when (code) {
+                                "ERROR_NETWORK_REQUEST_FAILED" ->
+                                    "Network error. Check your internet connection and try again."
+                                "ERROR_EMAIL_ALREADY_IN_USE" ->
+                                    "That email is already in use."
+                                "ERROR_INVALID_EMAIL" ->
+                                    "That email address is invalid."
+                                "ERROR_WEAK_PASSWORD" ->
+                                    "Password is too weak."
+                                else ->
+                                    "Registration failed: ${ex.localizedMessage ?: "Unknown error."}"
+                            }
+                        }
+                        else -> {
+                            "Registration failed: ${ex?.localizedMessage ?: "Unknown error."}"
+                        }
+                    }
+
+                    _uiState.value = AuthUiState(isLoading = false, errorMessage = msg)
+                }
+            }
     }
+
 
     fun logout() {
         auth.signOut()

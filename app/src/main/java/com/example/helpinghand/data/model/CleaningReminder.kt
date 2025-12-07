@@ -5,7 +5,7 @@ import androidx.room.PrimaryKey
 
 @Entity(tableName = "cleaning_reminders")
 data class CleaningReminder(
-    @PrimaryKey(autoGenerate = true) val id: Int = 0,
+    @PrimaryKey val id: String = "",
     val name: String,
     val intervalDays: Int,
     val nextDueEpochDay: Int

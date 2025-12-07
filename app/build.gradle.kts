@@ -5,7 +5,7 @@ plugins {
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
     id("org.jetbrains.kotlin.kapt")
-    id("com.google.gms.google-services") version "4.4.4" apply false
+    id("com.google.gms.google-services") version "4.4.4"
 }
 val localProps = Properties()
 val localPropsFile = rootProject.file("local.properties")
@@ -97,5 +97,6 @@ dependencies {
     implementation(platform("com.google.firebase:firebase-bom:33.7.0"))
     implementation("com.google.firebase:firebase-auth-ktx")
     implementation("com.google.firebase:firebase-firestore-ktx")
+    implementation("com.google.android.recaptcha:recaptcha:18.5.1")
 }
 

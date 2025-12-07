@@ -10,7 +10,7 @@ import java.time.temporal.ChronoUnit
 
 @Entity(tableName = "doctor_appointments")
 data class DoctorAppointment(
-    @PrimaryKey(autoGenerate = true) val id: Int = 0,
+    @PrimaryKey val id: String = "",
     val doctorName: String,
     // Store as simple string in DB: "Doctor", "Dentist", "Specialist"
     val type: String,
