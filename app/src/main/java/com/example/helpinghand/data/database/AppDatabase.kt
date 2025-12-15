@@ -19,7 +19,7 @@ import com.example.helpinghand.data.model.DoctorAppointment
     Contact::class,
     DoctorAppointment::class
                      ],
-    version = 6, exportSchema = false)
+    version = 7, exportSchema = false)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun shoppingItemDao(): ShoppingItemDao
     abstract fun cleaningReminderDao(): CleaningReminderDao

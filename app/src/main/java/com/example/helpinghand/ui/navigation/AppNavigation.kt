@@ -276,7 +276,9 @@ fun AppNavigation(
         composable("cleaning") {
             CleaningReminderScreen(
                 navController = navController,
-                viewModel = cleaningReminderViewModel
+                viewModel = cleaningReminderViewModel,
+                householdMembers = householdMembers,
+                currentUserUid = currentUser?.uid
             )
         }
 

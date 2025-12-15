@@ -153,8 +153,21 @@ class DoctorAppointmentsViewModel(
         }
     }
 
+    override fun onCleared() {
+        super.onCleared()
+        try {
+            AppLogger.d(AppLogger.TAG_VM, "DoctorAppointmentsViewModel.onCleared: clearing sync listener")
+            syncRepo.clear()
+        } catch (e: Exception) {
+            AppLogger.e(
+                AppLogger.TAG_VM,
+                "DoctorAppointmentsViewModel.onCleared: FAILED to clear sync listener message=${e.message}",
+                e
+            )
+        }
+    }
+
     private fun normalizePhone(input: String): String {
-        // Keep only digits, max length
         return input.filter { it.isDigit() }.take(MAX_PHONE_DIGITS)
     }
 
@@ -193,22 +206,50 @@ class DoctorAppointmentsSyncRepository(
     private val householdsCol = db.collection("households")
 
     private var listener: ListenerRegistration? = null
+    @Volatile private var cachedHouseholdId: String? = null
 
     init {
-        AppLogger.d(TAG, "init: starting to resolve householdId for doctor appointments sync")
+        AppLogger.d(TAG, "init: attempting to start doctor appointments sync listener")
         scope.launch {
             try {
-                val hid = householdRepo.getOrCreateHouseholdId()
+                val hid = ensureHouseholdAndListener()
                 if (hid == null) {
-                    AppLogger.e(TAG, "init: householdId is null, cannot start doctor appointments sync", null)
-                    return@launch
+                    AppLogger.e(TAG, "init: householdId is null, doctor listener not started (will retry on next operation)", null)
                 }
-                AppLogger.d(TAG, "init: obtained householdId=$hid, starting listener")
-                startListening(hid)
             } catch (e: Exception) {
-                AppLogger.e(TAG, "init: FAILED to get householdId message=${e.message}", e)
+                AppLogger.e(TAG, "init: FAILED ensureHouseholdAndListener message=${e.message}", e)
             }
         }
+    }
+
+    private suspend fun resolveHouseholdId(): String? {
+        val existing = cachedHouseholdId
+        if (existing != null) return existing
+
+        AppLogger.d(TAG, "resolveHouseholdId: cache miss, calling HouseholdRepository.getOrCreateHouseholdId()")
+        return try {
+            val hid = householdRepo.getOrCreateHouseholdId()
+            if (hid == null) {
+                AppLogger.e(TAG, "resolveHouseholdId: returned null householdId", null)
+                null
+            } else {
+                cachedHouseholdId = hid
+                AppLogger.d(TAG, "resolveHouseholdId: resolved householdId=$hid")
+                hid
+            }
+        } catch (e: Exception) {
+            AppLogger.e(TAG, "resolveHouseholdId: FAILED message=${e.message}", e)
+            null
+        }
+    }
+
+    private suspend fun ensureHouseholdAndListener(): String? {
+        val hid = resolveHouseholdId() ?: return null
+        if (listener != null) return hid
+
+        AppLogger.d(TAG, "ensureHouseholdAndListener: attaching listener for householdId=$hid (doctor appointments)")
+        startListening(hid)
+        return hid
     }
 
     private fun startListening(householdId: String) {
@@ -226,26 +267,15 @@ class DoctorAppointmentsSyncRepository(
                     return@addSnapshotListener
                 }
                 if (snapshot == null) {
-                    AppLogger.e(
-                        TAG,
-                        "startListening: snapshot is null for doctor appointments householdId=$householdId",
-                        null
-                    )
+                    AppLogger.e(TAG, "startListening: snapshot is null for doctor appointments householdId=$householdId", null)
                     return@addSnapshotListener
                 }
 
-                AppLogger.d(
-                    TAG,
-                    "startListening: received doctor appointments snapshot with ${snapshot.size()} docs for householdId=$householdId"
-                )
+                AppLogger.d(TAG, "startListening: received doctor appointments snapshot with ${snapshot.size()} docs for householdId=$householdId")
 
                 val appointments = snapshot.documents.mapNotNull { doc ->
                     val doctorName = doc.getString("doctorName") ?: run {
-                        AppLogger.e(
-                            TAG,
-                            "startListening: skipping doctor doc ${doc.id} missing 'doctorName' field",
-                            null
-                        )
+                        AppLogger.e(TAG, "startListening: skipping doctor doc ${doc.id} missing 'doctorName' field", null)
                         return@mapNotNull null
                     }
                     val type = doc.getString("type") ?: ""
@@ -271,15 +301,9 @@ class DoctorAppointmentsSyncRepository(
                     try {
                         AppLogger.d(TAG, "startListening: replacing local doctor appointments with ${appointments.size} items")
                         dao.deleteAll()
-                        if (appointments.isNotEmpty()) {
-                            dao.insertAll(appointments)
-                        }
+                        if (appointments.isNotEmpty()) dao.insertAll(appointments)
                     } catch (e: Exception) {
-                        AppLogger.e(
-                            TAG,
-                            "startListening: FAILED to sync doctor appointments snapshot to Room message=${e.message}",
-                            e
-                        )
+                        AppLogger.e(TAG, "startListening: FAILED to sync doctor appointments snapshot to Room message=${e.message}", e)
                     }
                 }
             }
@@ -307,7 +331,7 @@ class DoctorAppointmentsSyncRepository(
         )
 
         try {
-            val hid = householdRepo.getOrCreateHouseholdId()
+            val hid = ensureHouseholdAndListener()
             if (hid == null) {
                 AppLogger.e(TAG, "addAppointment: householdId is null, aborting", null)
                 return
@@ -318,7 +342,7 @@ class DoctorAppointmentsSyncRepository(
             val data = mapOf(
                 "doctorName" to trimmedName,
                 "type" to type,
-                "lastVisitEpochDay" to null,          // initially null
+                "lastVisitEpochDay" to null,
                 "nextVisitEpochDay" to nextVisitEpochDay,
                 "phoneRaw" to phoneRaw,
                 "officeName" to trimmedOffice,
@@ -328,13 +352,8 @@ class DoctorAppointmentsSyncRepository(
             AppLogger.d(TAG, "addAppointment: setting Firestore doctor doc id=${docRef.id}")
             docRef.set(data).await()
             AppLogger.d(TAG, "addAppointment: Firestore write success for doctor id=${docRef.id}")
-            // Room updates via listener
         } catch (e: Exception) {
-            AppLogger.e(
-                TAG,
-                "addAppointment: FAILED Firestore write for \"$trimmedName\" message=${e.message}",
-                e
-            )
+            AppLogger.e(TAG, "addAppointment: FAILED Firestore write for \"$trimmedName\" message=${e.message}", e)
             throw e
         }
     }
@@ -343,68 +362,53 @@ class DoctorAppointmentsSyncRepository(
         appointment: DoctorAppointment,
         newNextVisitEpochDay: Int
     ) {
-        AppLogger.d(
-            TAG,
-            "updateNextVisit: preparing to update doctor id=${appointment.id} newNextVisit=$newNextVisitEpochDay"
-        )
+        AppLogger.d(TAG, "updateNextVisit: preparing to update doctor id=${appointment.id} newNextVisit=$newNextVisitEpochDay")
 
         try {
-            val hid = householdRepo.getOrCreateHouseholdId()
+            val hid = ensureHouseholdAndListener()
             if (hid == null) {
                 AppLogger.e(TAG, "updateNextVisit: householdId is null, aborting", null)
                 return
             }
 
-            val docRef = householdsCol
-                .document(hid)
+            val docRef = householdsCol.document(hid)
                 .collection("doctor_appointments")
                 .document(appointment.id)
 
             docRef.update("nextVisitEpochDay", newNextVisitEpochDay).await()
             AppLogger.d(TAG, "updateNextVisit: Firestore update success for doctor id=${appointment.id}")
         } catch (e: Exception) {
-            AppLogger.e(
-                TAG,
-                "updateNextVisit: FAILED Firestore update for doctor id=${appointment.id} message=${e.message}",
-                e
-            )
+            AppLogger.e(TAG, "updateNextVisit: FAILED Firestore update for doctor id=${appointment.id} message=${e.message}", e)
             throw e
         }
     }
 
     suspend fun deleteAppointment(appointment: DoctorAppointment) {
-        AppLogger.d(
-            TAG,
-            "deleteAppointment: preparing to delete doctor id=${appointment.id} from Firestore"
-        )
+        AppLogger.d(TAG, "deleteAppointment: preparing to delete doctor id=${appointment.id} from Firestore")
 
         try {
-            val hid = householdRepo.getOrCreateHouseholdId()
+            val hid = ensureHouseholdAndListener()
             if (hid == null) {
                 AppLogger.e(TAG, "deleteAppointment: householdId is null, aborting", null)
                 return
             }
 
-            val docRef = householdsCol
-                .document(hid)
+            val docRef = householdsCol.document(hid)
                 .collection("doctor_appointments")
                 .document(appointment.id)
 
             docRef.delete().await()
             AppLogger.d(TAG, "deleteAppointment: Firestore delete success for doctor id=${appointment.id}")
         } catch (e: Exception) {
-            AppLogger.e(
-                TAG,
-                "deleteAppointment: FAILED Firestore delete for doctor id=${appointment.id} message=${e.message}",
-                e
-            )
+            AppLogger.e(TAG, "deleteAppointment: FAILED Firestore delete for doctor id=${appointment.id} message=${e.message}", e)
             throw e
         }
     }
 
     fun clear() {
-        AppLogger.d(TAG, "clear: removing doctor appointments snapshot listener")
+        AppLogger.d(TAG, "clear: removing doctor appointments snapshot listener and resetting household cache")
         listener?.remove()
         listener = null
+        cachedHouseholdId = null
     }
 }

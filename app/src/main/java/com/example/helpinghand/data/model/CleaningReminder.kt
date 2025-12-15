@@ -8,5 +8,7 @@ data class CleaningReminder(
     @PrimaryKey val id: String = "",
     val name: String,
     val intervalDays: Int,
-    val nextDueEpochDay: Int
+    val nextDueEpochDay: Int,
+    val assignedToUid: String? = null,
+    val assignedToName: String? = null
 )

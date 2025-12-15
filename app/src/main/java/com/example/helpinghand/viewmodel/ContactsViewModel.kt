@@ -41,12 +41,8 @@ class ContactsViewModel(
             "addContact called: name=\"$trimmedName\", phone=\"$trimmedPhone\", email=\"$trimmedEmail\""
         )
 
-        // Name required, but at least ONE of phone / email is required
         if (trimmedName.isBlank() || (trimmedPhone.isBlank() && trimmedEmail.isBlank())) {
-            AppLogger.d(
-                AppLogger.TAG_VM,
-                "addContact: validation failed, aborting"
-            )
+            AppLogger.d(AppLogger.TAG_VM, "addContact: validation failed, aborting")
             return
         }
 
@@ -63,7 +59,7 @@ class ContactsViewModel(
                 )
                 AppLogger.d(
                     AppLogger.TAG_DB,
-                    "addContact: successfully delegated to ContactsSyncRepository for \"$trimmedName\""
+                    "addContact: delegated to ContactsSyncRepository for \"$trimmedName\""
                 )
             } catch (e: Exception) {
                 AppLogger.e(
@@ -90,7 +86,7 @@ class ContactsViewModel(
                 syncRepo.deleteContact(contact)
                 AppLogger.d(
                     AppLogger.TAG_DB,
-                    "deleteContact: successfully delegated to ContactsSyncRepository for id=${contact.id}"
+                    "deleteContact: delegated to ContactsSyncRepository for id=${contact.id}"
                 )
             } catch (e: Exception) {
                 AppLogger.e(
@@ -104,6 +100,20 @@ class ContactsViewModel(
                     "deleteContact: coroutine finished for id=${contact.id}"
                 )
             }
+        }
+    }
+
+    override fun onCleared() {
+        super.onCleared()
+        try {
+            AppLogger.d(AppLogger.TAG_VM, "ContactsViewModel.onCleared: clearing sync listener")
+            syncRepo.clear()
+        } catch (e: Exception) {
+            AppLogger.e(
+                AppLogger.TAG_VM,
+                "ContactsViewModel.onCleared: FAILED to clear sync listener message=${e.message}",
+                e
+            )
         }
     }
 }
@@ -136,22 +146,50 @@ class ContactsSyncRepository(
     private val householdsCol = db.collection("households")
 
     private var listener: ListenerRegistration? = null
+    @Volatile private var cachedHouseholdId: String? = null
 
     init {
-        AppLogger.d(TAG, "init: starting to resolve householdId for contacts sync")
+        AppLogger.d(TAG, "init: attempting to start contacts sync listener")
         scope.launch {
             try {
-                val hid = householdRepo.getOrCreateHouseholdId()
+                val hid = ensureHouseholdAndListener()
                 if (hid == null) {
-                    AppLogger.e(TAG, "init: householdId is null, cannot start contacts sync", null)
-                    return@launch
+                    AppLogger.e(TAG, "init: householdId is null, contacts listener not started (will retry on next operation)", null)
                 }
-                AppLogger.d(TAG, "init: obtained householdId=$hid, starting listener")
-                startListening(hid)
             } catch (e: Exception) {
-                AppLogger.e(TAG, "init: FAILED to get householdId message=${e.message}", e)
+                AppLogger.e(TAG, "init: FAILED ensureHouseholdAndListener message=${e.message}", e)
             }
         }
+    }
+
+    private suspend fun resolveHouseholdId(): String? {
+        val existing = cachedHouseholdId
+        if (existing != null) return existing
+
+        AppLogger.d(TAG, "resolveHouseholdId: cache miss, calling HouseholdRepository.getOrCreateHouseholdId()")
+        return try {
+            val hid = householdRepo.getOrCreateHouseholdId()
+            if (hid == null) {
+                AppLogger.e(TAG, "resolveHouseholdId: returned null householdId", null)
+                null
+            } else {
+                cachedHouseholdId = hid
+                AppLogger.d(TAG, "resolveHouseholdId: resolved householdId=$hid")
+                hid
+            }
+        } catch (e: Exception) {
+            AppLogger.e(TAG, "resolveHouseholdId: FAILED message=${e.message}", e)
+            null
+        }
+    }
+
+    private suspend fun ensureHouseholdAndListener(): String? {
+        val hid = resolveHouseholdId() ?: return null
+        if (listener != null) return hid
+
+        AppLogger.d(TAG, "ensureHouseholdAndListener: attaching listener for householdId=$hid (contacts)")
+        startListening(hid)
+        return hid
     }
 
     private fun startListening(householdId: String) {
@@ -169,26 +207,15 @@ class ContactsSyncRepository(
                     return@addSnapshotListener
                 }
                 if (snapshot == null) {
-                    AppLogger.e(
-                        TAG,
-                        "startListening: snapshot is null for contacts householdId=$householdId",
-                        null
-                    )
+                    AppLogger.e(TAG, "startListening: snapshot is null for contacts householdId=$householdId", null)
                     return@addSnapshotListener
                 }
 
-                AppLogger.d(
-                    TAG,
-                    "startListening: received contacts snapshot with ${snapshot.size()} docs for householdId=$householdId"
-                )
+                AppLogger.d(TAG, "startListening: received contacts snapshot with ${snapshot.size()} docs for householdId=$householdId")
 
                 val contacts = snapshot.documents.mapNotNull { doc ->
                     val name = doc.getString("name") ?: run {
-                        AppLogger.e(
-                            TAG,
-                            "startListening: skipping contact doc ${doc.id} missing 'name' field",
-                            null
-                        )
+                        AppLogger.e(TAG, "startListening: skipping contact doc ${doc.id} missing 'name' field", null)
                         return@mapNotNull null
                     }
                     val phone = doc.getString("phone") ?: ""
@@ -205,15 +232,9 @@ class ContactsSyncRepository(
                     try {
                         AppLogger.d(TAG, "startListening: replacing local contacts with ${contacts.size} items")
                         dao.deleteAll()
-                        if (contacts.isNotEmpty()) {
-                            dao.insertAll(contacts)
-                        }
+                        if (contacts.isNotEmpty()) dao.insertAll(contacts)
                     } catch (e: Exception) {
-                        AppLogger.e(
-                            TAG,
-                            "startListening: FAILED to sync contacts snapshot to Room message=${e.message}",
-                            e
-                        )
+                        AppLogger.e(TAG, "startListening: FAILED to sync contacts snapshot to Room message=${e.message}", e)
                     }
                 }
             }
@@ -225,19 +246,14 @@ class ContactsSyncRepository(
         val trimmedEmail = email.trim()
 
         if (trimmedName.isBlank() || (trimmedPhone.isBlank() && trimmedEmail.isBlank())) {
-            AppLogger.d(
-                TAG,
-                "addContact: validation failed inside syncRepo (this should usually be caught by VM)"
-            )
+            AppLogger.d(TAG, "addContact: validation failed inside syncRepo, aborting")
             return
         }
 
-        AppLogger.d(
-            TAG,
-            "addContact: preparing to add contact \"$trimmedName\" to Firestore"
-        )
+        AppLogger.d(TAG, "addContact: preparing to add contact \"$trimmedName\" to Firestore")
+
         try {
-            val hid = householdRepo.getOrCreateHouseholdId()
+            val hid = ensureHouseholdAndListener()
             if (hid == null) {
                 AppLogger.e(TAG, "addContact: householdId is null, aborting", null)
                 return
@@ -254,50 +270,38 @@ class ContactsSyncRepository(
             AppLogger.d(TAG, "addContact: setting Firestore contact doc id=${docRef.id}")
             docRef.set(data).await()
             AppLogger.d(TAG, "addContact: Firestore write success for contact id=${docRef.id}")
-            // Room will update via snapshot listener
         } catch (e: Exception) {
-            AppLogger.e(
-                TAG,
-                "addContact: FAILED Firestore write for \"$trimmedName\" message=${e.message}",
-                e
-            )
+            AppLogger.e(TAG, "addContact: FAILED Firestore write for \"$trimmedName\" message=${e.message}", e)
             throw e
         }
     }
 
     suspend fun deleteContact(contact: Contact) {
-        AppLogger.d(
-            TAG,
-            "deleteContact: preparing to delete contact id=${contact.id} from Firestore"
-        )
+        AppLogger.d(TAG, "deleteContact: preparing to delete contact id=${contact.id} from Firestore")
+
         try {
-            val hid = householdRepo.getOrCreateHouseholdId()
+            val hid = ensureHouseholdAndListener()
             if (hid == null) {
                 AppLogger.e(TAG, "deleteContact: householdId is null, aborting", null)
                 return
             }
 
-            val docRef = householdsCol
-                .document(hid)
+            val docRef = householdsCol.document(hid)
                 .collection("contacts")
                 .document(contact.id)
 
             docRef.delete().await()
             AppLogger.d(TAG, "deleteContact: Firestore delete success for id=${contact.id}")
-            // Room will update via snapshot listener
         } catch (e: Exception) {
-            AppLogger.e(
-                TAG,
-                "deleteContact: FAILED Firestore delete for id=${contact.id} message=${e.message}",
-                e
-            )
+            AppLogger.e(TAG, "deleteContact: FAILED Firestore delete for id=${contact.id} message=${e.message}", e)
             throw e
         }
     }
 
     fun clear() {
-        AppLogger.d(TAG, "clear: removing contacts snapshot listener")
+        AppLogger.d(TAG, "clear: removing contacts snapshot listener and resetting household cache")
         listener?.remove()
         listener = null
+        cachedHouseholdId = null
     }
 }
