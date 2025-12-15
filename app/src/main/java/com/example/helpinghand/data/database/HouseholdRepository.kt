@@ -40,7 +40,6 @@ class HouseholdRepository(
                 )
             ).await()
         } else {
-            // Keep derived fields normalized for reliable lookups
             val updates = mutableMapOf<String, Any>()
             if (snapshot.getString("email") != email) updates["email"] = email
             if (snapshot.getString("emailLower") != emailLower) updates["emailLower"] = emailLower
@@ -62,7 +61,6 @@ class HouseholdRepository(
         val existing = snapshot.getString("householdId")
         if (!existing.isNullOrBlank()) return existing
 
-        // Create new household
         val newDoc = householdsCol.document()
         val nameBase = snapshot.getString("displayName")?.takeIf { it.isNotBlank() } ?: "Household"
         newDoc.set(
@@ -83,11 +81,7 @@ class HouseholdRepository(
         val reg = householdsCol.document(householdId)
             .addSnapshotListener { snapshot, error ->
                 if (error != null) {
-                    AppLogger.e(
-                        AppLogger.TAG_VM,
-                        "observeHouseholdMembers error: ${error.message}",
-                        error
-                    )
+                    AppLogger.e(AppLogger.TAG_VM, "observeHouseholdMembers error: ${error.message}", error)
                     trySend(emptyList())
                     return@addSnapshotListener
                 }
@@ -97,13 +91,13 @@ class HouseholdRepository(
                     return@addSnapshotListener
                 }
 
-                val memberIds = (snapshot.get("members") as? List<*>)?.mapNotNull { it as? String } ?: emptyList()
+                val memberIds =
+                    (snapshot.get("members") as? List<*>)?.mapNotNull { it as? String } ?: emptyList()
                 if (memberIds.isEmpty()) {
                     trySend(emptyList())
                     return@addSnapshotListener
                 }
 
-                // Transaction read so we get a consistent set of user docs
                 db.runTransaction { tx ->
                     memberIds.mapNotNull { uid ->
                         val userSnap = tx.get(usersCol.document(uid))
@@ -114,11 +108,7 @@ class HouseholdRepository(
                 }.addOnSuccessListener { list ->
                     trySend(list)
                 }.addOnFailureListener { e ->
-                    AppLogger.e(
-                        AppLogger.TAG_VM,
-                        "observeHouseholdMembers transaction error: ${e.message}",
-                        e
-                    )
+                    AppLogger.e(AppLogger.TAG_VM, "observeHouseholdMembers transaction error: ${e.message}", e)
                     trySend(emptyList())
                 }
             }
@@ -127,86 +117,49 @@ class HouseholdRepository(
     }
 
     /**
-     * Invite/add by email.
-     * NOTE: This now FORCE-moves that user into this household (matches Option A behavior).
-     */
-    suspend fun addMemberByEmail(householdId: String, email: String): Boolean {
-        val trimmedEmailLower = email.trim().lowercase()
-        if (trimmedEmailLower.isBlank()) return false
-
-        // Find user by normalized email
-        val userQuery = usersCol.whereEqualTo("emailLower", trimmedEmailLower).get().await()
-        if (userQuery.isEmpty) return false
-
-        val uid = userQuery.documents.first().id
-        val hid = householdId.trim()
-        if (hid.isBlank()) return false
-
-        // Validate household exists
-        val targetRef = householdsCol.document(hid)
-        if (!targetRef.get().await().exists()) return false
-
-        val userRef = usersCol.document(uid)
-
-        db.runTransaction { tx ->
-            val uSnap = tx.get(userRef)
-            val oldHouseholdId = uSnap.getString("householdId")
-
-            // Add to target household
-            tx.update(targetRef, "members", FieldValue.arrayUnion(uid))
-
-            // Remove from old household if needed
-            if (!oldHouseholdId.isNullOrBlank() && oldHouseholdId != hid) {
-                val oldRef = householdsCol.document(oldHouseholdId)
-                val oldSnap = tx.get(oldRef)
-                if (oldSnap.exists()) {
-                    tx.update(oldRef, "members", FieldValue.arrayRemove(uid))
-                }
-            }
-
-            // Force-set the user's householdId
-            tx.update(userRef, "householdId", hid)
-        }.await()
-
-        return true
-    }
-
-    /**
-     * Option A: Join an existing household by its id (shareable code).
+     * Join an existing household by its id (shareable code).
      * FORCE-sets the current user's householdId to the target household.
      */
     suspend fun joinHousehold(targetHouseholdId: String): Boolean {
-        val uid = ensureUserDocument() ?: return false
-        val hid = targetHouseholdId.trim()
-        if (hid.isBlank()) return false
+        return try {
+            val uid = ensureUserDocument() ?: return false
+            val hid = targetHouseholdId.trim()
+            if (hid.isBlank()) return false
 
-        val targetRef = householdsCol.document(hid)
-        val targetSnap = targetRef.get().await()
-        if (!targetSnap.exists()) return false
-
-        val userRef = usersCol.document(uid)
-
-        db.runTransaction { tx ->
-            val uSnap = tx.get(userRef)
-            val oldHouseholdId = uSnap.getString("householdId")
-
-            // Add user to target household
-            tx.update(targetRef, "members", FieldValue.arrayUnion(uid))
-
-            // Remove from old household members list (optional cleanup)
-            if (!oldHouseholdId.isNullOrBlank() && oldHouseholdId != hid) {
-                val oldRef = householdsCol.document(oldHouseholdId)
-                val oldSnap = tx.get(oldRef)
-                if (oldSnap.exists()) {
-                    tx.update(oldRef, "members", FieldValue.arrayRemove(uid))
-                }
+            val targetRef = householdsCol.document(hid)
+            val targetSnap = targetRef.get().await()
+            if (!targetSnap.exists()) {
+                AppLogger.e(AppLogger.TAG_VM, "joinHousehold: target household does not exist: $hid")
+                return false
             }
 
-            // Force-set user's householdId
-            tx.update(userRef, "householdId", hid)
-        }.await()
+            val userRef = usersCol.document(uid)
 
-        return true
+            db.runTransaction { tx ->
+                // READS FIRST
+                val uSnap = tx.get(userRef)
+                val oldHouseholdId = uSnap.getString("householdId")
+
+                val oldRef =
+                    if (!oldHouseholdId.isNullOrBlank() && oldHouseholdId != hid) householdsCol.document(oldHouseholdId)
+                    else null
+                val oldSnap = oldRef?.let { tx.get(it) }
+
+                // WRITES AFTER
+                tx.update(targetRef, "members", FieldValue.arrayUnion(uid))
+                tx.update(userRef, "householdId", hid)
+
+                if (oldRef != null && oldSnap != null && oldSnap.exists()) {
+                    tx.update(oldRef, "members", FieldValue.arrayRemove(uid))
+                }
+            }.await()
+
+            AppLogger.d(AppLogger.TAG_VM, "joinHousehold: SUCCESS uid=$uid -> hid=$hid")
+            true
+        } catch (e: Exception) {
+            AppLogger.e(AppLogger.TAG_VM, "joinHousehold: FAILED: ${e.message}", e)
+            false
+        }
     }
 
     /**
@@ -214,33 +167,38 @@ class HouseholdRepository(
      * Returns the new householdId, or null if not logged in / failed.
      */
     suspend fun leaveAndCreateSoloHousehold(): String? {
-        val uid = ensureUserDocument() ?: return null
-        val userRef = usersCol.document(uid)
+        return try {
+            val uid = ensureUserDocument() ?: return null
+            val userRef = usersCol.document(uid)
 
-        // Read old household first
-        val oldHouseholdId = userRef.get().await().getString("householdId")
+            val oldHouseholdId = userRef.get().await().getString("householdId")
 
-        // Create new household doc
-        val newDoc = householdsCol.document()
-        newDoc.set(
-            mapOf(
-                "name" to "My household",
-                "members" to listOf(uid)
-            )
-        ).await()
+            val newDoc = householdsCol.document()
+            newDoc.set(
+                mapOf(
+                    "name" to "My household",
+                    "members" to listOf(uid)
+                )
+            ).await()
 
-        // Move membership + update user atomically
-        db.runTransaction { tx ->
-            if (!oldHouseholdId.isNullOrBlank() && oldHouseholdId != newDoc.id) {
-                val oldRef = householdsCol.document(oldHouseholdId)
-                val oldSnap = tx.get(oldRef)
-                if (oldSnap.exists()) {
+            db.runTransaction { tx ->
+                // READS FIRST (only if needed)
+                val oldRef =
+                    if (!oldHouseholdId.isNullOrBlank() && oldHouseholdId != newDoc.id) householdsCol.document(oldHouseholdId)
+                    else null
+                val oldSnap = oldRef?.let { tx.get(it) }
+
+                // WRITES AFTER
+                if (oldRef != null && oldSnap != null && oldSnap.exists()) {
                     tx.update(oldRef, "members", FieldValue.arrayRemove(uid))
                 }
-            }
-            tx.update(userRef, "householdId", newDoc.id)
-        }.await()
+                tx.update(userRef, "householdId", newDoc.id)
+            }.await()
 
-        return newDoc.id
+            newDoc.id
+        } catch (e: Exception) {
+            AppLogger.e(AppLogger.TAG_VM, "leaveAndCreateSoloHousehold: FAILED: ${e.message}", e)
+            null
+        }
     }
 }
