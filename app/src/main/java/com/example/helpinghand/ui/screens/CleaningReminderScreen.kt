@@ -22,6 +22,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
@@ -52,7 +53,7 @@ fun CleaningReminderScreen(
     // Assignee selection state (only used when householdMembers.size > 1)
     var assigneeExpanded by remember { mutableStateOf(false) }
     var selectedMember by remember { mutableStateOf<HouseholdMember?>(null) }
-
+    var showHelpDialog by remember { mutableStateOf(false) }
     val membersByUid = remember(householdMembers) {
         householdMembers.associateBy { it.uid }
     }
@@ -103,15 +104,17 @@ fun CleaningReminderScreen(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
-                        Box(
+                        // Replace person icon with help button
+                        IconButton(
+                            onClick = { showHelpDialog = true },
                             modifier = Modifier
                                 .size(36.dp)
-                                .background(C.Primary, CircleShape),
-                            contentAlignment = Alignment.Center
+                                .clip(CircleShape)
+                                .background(C.Primary)
                         ) {
                             Icon(
-                                imageVector = Icons.Filled.Person,
-                                contentDescription = "Profile",
+                                imageVector = Icons.Filled.Help,
+                                contentDescription = "Help",
                                 tint = C.Surface
                             )
                         }
@@ -119,7 +122,7 @@ fun CleaningReminderScreen(
                             text = "Cleaning",
                             fontSize = 20.sp,
                             color = C.OnBackground,
-                            modifier = Modifier.testTag("cleaning_title")
+                            modifier = Modifier.testTag("dashboard_title")
                         )
                     }
                 },
@@ -471,6 +474,8 @@ fun CleaningReminderScreen(
             )
         }
     }
+    if (showHelpDialog) {
+        OnboardingDialog(onDismiss = { showHelpDialog = false })}
 }
 
 @Composable

@@ -13,6 +13,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.ChevronLeft
+import androidx.compose.material.icons.filled.Help
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
@@ -41,7 +42,7 @@ fun MealsScreen(
 ) {
     val meals by viewModel.meals.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
-
+    var showHelpDialog by remember { mutableStateOf(false) }
     // Search
     var searchQuery by remember { mutableStateOf("") }
 
@@ -98,16 +99,26 @@ fun MealsScreen(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
-                        Box(
+                        // Replace person icon with help button
+                        IconButton(
+                            onClick = { showHelpDialog = true },
                             modifier = Modifier
                                 .size(36.dp)
                                 .clip(CircleShape)
-                                .background(C.Primary),
-                            contentAlignment = Alignment.Center
+                                .background(C.Primary)
                         ) {
-                            Icon(Icons.Filled.Person, null, tint = C.Surface)
+                            Icon(
+                                imageVector = Icons.Filled.Help,
+                                contentDescription = "Help",
+                                tint = C.Surface
+                            )
                         }
-                        Text("Shopping & Meals", fontSize = 20.sp, color = C.OnBackground)
+                        Text(
+                            text = "Shopping & Meals",
+                            fontSize = 20.sp,
+                            color = C.OnBackground,
+                            modifier = Modifier.testTag("dashboard_title")
+                        )
                     }
                 },
                 actions = {
@@ -213,6 +224,8 @@ fun MealsScreen(
             }
         }
     }
+    if (showHelpDialog) {
+        OnboardingDialog(onDismiss = { showHelpDialog = false })}
 }
 
 
