@@ -21,6 +21,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
@@ -48,7 +49,7 @@ fun DoctorAppointmentsScreen(
     viewModel: DoctorAppointmentsViewModel
 ) {
     val appointments by viewModel.appointments.collectAsState()
-
+    var showHelpDialog by remember { mutableStateOf(false) }
     var showAddDialog by remember { mutableStateOf(false) }
     var showEditDialog by remember { mutableStateOf(false) }
     var appointmentToEdit by remember { mutableStateOf<DoctorAppointment?>(null) }
@@ -77,16 +78,26 @@ fun DoctorAppointmentsScreen(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
-                        Box(
+                        // Replace person icon with help button
+                        IconButton(
+                            onClick = { showHelpDialog = true },
                             modifier = Modifier
                                 .size(36.dp)
                                 .clip(CircleShape)
-                                .background(C.Primary),
-                            contentAlignment = Alignment.Center
+                                .background(C.Primary)
                         ) {
-                            Icon(Icons.Filled.Person, null, tint = C.Surface)
+                            Icon(
+                                imageVector = Icons.Filled.Help,
+                                contentDescription = "Help",
+                                tint = C.Surface
+                            )
                         }
-                        Text("Doctor Appointments", fontSize = 20.sp, color = C.OnBackground)
+                        Text(
+                            text = "Doctor Appointments",
+                            fontSize = 20.sp,
+                            color = C.OnBackground,
+                            modifier = Modifier.testTag("dashboard_title")
+                        )
                     }
                 },
                 actions = {
@@ -208,17 +219,10 @@ fun DoctorAppointmentsScreen(
             )
         }
     }
+    if (showHelpDialog) {
+        OnboardingDialog(onDismiss = { showHelpDialog = false })}
 }
 
-private fun DoctorAppointmentsViewModel.updateAppointment(
-    appointmentToEdit: DoctorAppointment,
-    name: String,
-    typeString: String,
-    phone: String,
-    office: String,
-    intervalMonths: Int
-) {
-}
 
 @RequiresApi(Build.VERSION_CODES.O)
 @Composable
