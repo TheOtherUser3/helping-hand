@@ -124,6 +124,12 @@ class ShoppingCartViewModel(
         super.onCleared()
         syncRepo.clear()
     }
+
+    fun onHouseholdIdChanged(newHouseholdId: String?) {
+        AppLogger.d(AppLogger.TAG_VM, "ShoppingCartViewModel: onHouseholdIdChanged -> $newHouseholdId")
+        syncRepo.setHouseholdId(newHouseholdId)
+    }
+
 }
 
 class ShoppingCartViewModelFactory(
@@ -343,4 +349,26 @@ class ShoppingSyncRepository(
         listener = null
         cachedHouseholdId = null
     }
+
+    fun setHouseholdId(newHouseholdId: String?) {
+        val normalized = newHouseholdId?.trim()?.takeIf { it.isNotBlank() }
+
+        // No change, do nothing
+        if (normalized == cachedHouseholdId) return
+
+        AppLogger.d(TAG, "setHouseholdId: switching shopping sync from $cachedHouseholdId -> $normalized")
+
+        // Kill the old listener
+        listener?.remove()
+        listener = null
+
+        // Update cache
+        cachedHouseholdId = normalized
+
+        // Attach new listener if we have an id
+        if (normalized != null) {
+            startListening(normalized)
+        }
+    }
+
 }

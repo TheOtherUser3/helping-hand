@@ -228,6 +228,12 @@ class DoctorAppointmentsViewModel(
         return input.filter { it.isDigit() }.take(MAX_PHONE_DIGITS)
     }
 
+    fun onHouseholdIdChanged(newHouseholdId: String?) {
+        AppLogger.d(AppLogger.TAG_VM, "DoctorAppointmentsViewModel: onHouseholdIdChanged -> $newHouseholdId")
+        syncRepo.setHouseholdId(newHouseholdId)
+    }
+
+
     companion object {
         private const val MAX_NAME_CHARS = 60
         private const val MAX_OFFICE_CHARS = 60
@@ -512,4 +518,26 @@ class DoctorAppointmentsSyncRepository(
         listener = null
         cachedHouseholdId = null
     }
+
+    fun setHouseholdId(newHouseholdId: String?) {
+        val normalized = newHouseholdId?.trim()?.takeIf { it.isNotBlank() }
+
+        // No change, do nothing
+        if (normalized == cachedHouseholdId) return
+
+        AppLogger.d(TAG, "setHouseholdId: switching doctor appointments sync from $cachedHouseholdId -> $normalized")
+
+        // Kill the old listener
+        listener?.remove()
+        listener = null
+
+        // Update cache
+        cachedHouseholdId = normalized
+
+        // Attach new listener if we have an id
+        if (normalized != null) {
+            startListening(normalized)
+        }
+    }
+
 }
