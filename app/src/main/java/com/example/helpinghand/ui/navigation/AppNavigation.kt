@@ -1,6 +1,11 @@
 package com.example.helpinghand.ui.navigation
 
+import android.Manifest
+import android.content.Context
+import android.content.pm.PackageManager
 import android.os.Build
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.RequiresApi
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -12,6 +17,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -65,7 +71,9 @@ fun AppNavigation(
         }
     }
 
-    val app = LocalContext.current.applicationContext as HelpingHandApp
+    val context = LocalContext.current
+
+    val app = context.applicationContext as HelpingHandApp
     val db = app.database
 
     // Firebase auth viewmodel
@@ -103,6 +111,45 @@ fun AppNavigation(
     val dynamicThemeEnabled by settingsRepository.dynamicThemeEnabled.collectAsState(initial = false)
     val onboardingShown by settingsRepository.onboardingShown.collectAsState(initial = false)
     val scope = rememberCoroutineScope()
+
+    // ---------------------------
+    // Notifications permission gate (Android 13+)
+    // - only after onboarding is done
+    // - only when logged in
+    // - only once per install
+    // ---------------------------
+    val notifPrefs = remember(context) {
+        context.getSharedPreferences("helping_hand_prefs", Context.MODE_PRIVATE)
+    }
+    val KEY_NOTIF_PROMPT_SHOWN = "notif_permission_prompt_shown"
+
+    val notificationPermissionLauncher =
+        rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+            AppLogger.d(AppLogger.TAG_VM, "POST_NOTIFICATIONS result: granted=$granted")
+            // We already mark before launching, but keep this too for safety.
+            notifPrefs.edit().putBoolean(KEY_NOTIF_PROMPT_SHOWN, true).apply()
+        }
+
+    LaunchedEffect(currentUser?.uid, onboardingShown) {
+        if (Build.VERSION.SDK_INT >= 33 && onboardingShown && currentUser != null) {
+            val perm = Manifest.permission.POST_NOTIFICATIONS
+            val granted = ContextCompat.checkSelfPermission(context, perm) ==
+                    PackageManager.PERMISSION_GRANTED
+            val alreadyPrompted = notifPrefs.getBoolean(KEY_NOTIF_PROMPT_SHOWN, false)
+
+            AppLogger.d(
+                AppLogger.TAG_VM,
+                "Notif gate: sdk=${Build.VERSION.SDK_INT}, granted=$granted, alreadyPrompted=$alreadyPrompted, onboardingShown=$onboardingShown, user=${currentUser?.uid}"
+            )
+
+            if (!granted && !alreadyPrompted) {
+                // Mark first to prevent double prompts from recomposition
+                notifPrefs.edit().putBoolean(KEY_NOTIF_PROMPT_SHOWN, true).apply()
+                AppLogger.d(AppLogger.TAG_VM, "Requesting POST_NOTIFICATIONS permission")
+                notificationPermissionLauncher.launch(perm)
+            }
+        }
+    }
 
     // Navigation gate: redirect based on auth, but allow onboarding and ignore null route
     LaunchedEffect(currentUser, onboardingShown) {
