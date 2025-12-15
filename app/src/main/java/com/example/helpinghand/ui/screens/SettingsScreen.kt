@@ -296,16 +296,6 @@ fun SettingsScreen(
             )
         }
 
-        if (showAddMemberDialog) {
-            AddMemberDialog(
-                onDismiss = { showAddMemberDialog = false },
-                onAdd = { email ->
-                    onAddHouseholdMember(email)
-                    showAddMemberDialog = false
-                }
-            )
-        }
-
         // NEW: Household Code dialog
         if (showHouseholdCodeDialog) {
             AlertDialog(
@@ -582,7 +572,7 @@ private fun ProfileDialog(
 private fun HouseholdDialog(
     members: List<HouseholdMember>,
     onDismiss: () -> Unit,
-    onAddMember: () -> Unit
+    onAddMember: () -> Unit  // Keep parameter for compatibility but won't be used
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -629,15 +619,7 @@ private fun HouseholdDialog(
                     Divider(color = C.OnSurfaceVariant.copy(alpha = 0.15f))
                 }
 
-                Button(
-                    onClick = onAddMember,
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = ButtonDefaults.buttonColors(containerColor = C.Primary)
-                ) {
-                    Icon(Icons.Filled.Add, contentDescription = null)
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text("Add Member")
-                }
+                // Button removed - members can only be added via household code now
             }
         },
         confirmButton = {
