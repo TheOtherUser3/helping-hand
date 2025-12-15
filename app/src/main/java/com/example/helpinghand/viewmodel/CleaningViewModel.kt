@@ -210,6 +210,12 @@ class CleaningReminderViewModel(
             )
         }
     }
+
+    fun onHouseholdIdChanged(newHouseholdId: String?) {
+        AppLogger.d(AppLogger.TAG_VM, "CleaningReminderViewModel: onHouseholdIdChanged -> $newHouseholdId")
+        syncRepo.setHouseholdId(newHouseholdId)
+    }
+
 }
 
 class CleaningReminderViewModelFactory(
@@ -469,4 +475,26 @@ class CleaningSyncRepository(
         listener = null
         cachedHouseholdId = null
     }
+
+    fun setHouseholdId(newHouseholdId: String?) {
+        val normalized = newHouseholdId?.trim()?.takeIf { it.isNotBlank() }
+
+        // No change, do nothing
+        if (normalized == cachedHouseholdId) return
+
+        AppLogger.d(TAG, "setHouseholdId: switching cleaning sync from $cachedHouseholdId -> $normalized")
+
+        // Kill the old listener
+        listener?.remove()
+        listener = null
+
+        // Update cache
+        cachedHouseholdId = normalized
+
+        // Attach new listener if we have an id
+        if (normalized != null) {
+            startListening(normalized)
+        }
+    }
+
 }

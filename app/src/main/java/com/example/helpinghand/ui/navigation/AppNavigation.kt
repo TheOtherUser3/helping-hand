@@ -168,7 +168,19 @@ fun AppNavigation(
     }
 
     // Observe members whenever the householdId changes
+    // notify all household-scoped ViewModels to switch listeners/paths.
     LaunchedEffect(householdId) {
+        // Move householdId changes to the main feature ViewModels
+        try {
+            cleaningReminderViewModel.onHouseholdIdChanged(householdId)
+            doctorAppointmentsViewModel.onHouseholdIdChanged(householdId)
+            contactsViewModel.onHouseholdIdChanged(householdId)
+            shoppingCartViewModel.onHouseholdIdChanged(householdId)
+        } catch (e: Exception) {
+            AppLogger.e(AppLogger.TAG_VM, "Error propagating householdId to VMs: ${e.message}", e)
+        }
+
+        // Household member observation
         val id = householdId
         if (id != null) {
             AppLogger.d(AppLogger.TAG_VM, "Starting member observation for householdId=$id")
@@ -194,14 +206,10 @@ fun AppNavigation(
             else -> "dashboard"
         }
     ) {
-        // ONBOARDING
-
         composable("onboarding") {
             OnboardingScreen(
                 onFinish = {
-                    scope.launch {
-                        settingsRepository.setOnboardingShown()
-                    }
+                    scope.launch { settingsRepository.setOnboardingShown() }
                     navController.navigate("login") {
                         popUpTo("onboarding") { inclusive = true }
                     }
@@ -209,14 +217,10 @@ fun AppNavigation(
             )
         }
 
-        // AUTH SCREENS
-
         composable("login") {
             LoginScreen(
                 uiState = authUiState,
-                onLogin = { email, password ->
-                    authViewModel.login(email, password)
-                },
+                onLogin = { email, password -> authViewModel.login(email, password) },
                 navController = navController
             )
         }
@@ -230,8 +234,6 @@ fun AppNavigation(
                 navController = navController
             )
         }
-
-        // MAIN APP SCREENS
 
         composable("dashboard") {
             DashboardScreen(
@@ -288,42 +290,56 @@ fun AppNavigation(
                 hasLightSensor = hasLightSensor,
                 isDynamicTheme = dynamicThemeEnabled,
                 onDynamicThemeChange = { enabled ->
-                    scope.launch {
-                        settingsRepository.setDynamicTheme(enabled)
-                    }
+                    scope.launch { settingsRepository.setDynamicTheme(enabled) }
                 },
                 isDarkMode = darkMode,
                 onDarkModeChange = { enabled ->
-                    scope.launch {
-                        settingsRepository.setDarkMode(enabled)
-                    }
+                    scope.launch { settingsRepository.setDarkMode(enabled) }
                 },
                 navController = navController,
                 currentUserName = user?.displayName ?: "Unknown user",
                 currentUserEmail = user?.email ?: "Unknown email",
+                householdId = householdId,
                 householdMembers = householdMembers,
+
                 onAddHouseholdMember = { email ->
                     val id = householdId
                     if (id != null) {
                         scope.launch {
                             val success = householdRepository.addMemberByEmail(id, email)
                             if (!success) {
-                                AppLogger.e(
-                                    AppLogger.TAG_VM,
-                                    "Failed to add member with email=$email"
-                                )
+                                AppLogger.e(AppLogger.TAG_VM, "Failed to add member with email=$email")
                             }
                         }
                     } else {
-                        AppLogger.e(
-                            AppLogger.TAG_VM,
-                            "Cannot add member, householdId is null"
-                        )
+                        AppLogger.e(AppLogger.TAG_VM, "Cannot add member, householdId is null")
                     }
                 },
-                onLogout = {
-                    authViewModel.logout()
-                }
+
+                onJoinHousehold = { code ->
+                    scope.launch {
+                        val trimmed = code.trim()
+                        if (trimmed.isBlank()) return@launch
+
+                        val success = householdRepository.joinHousehold(trimmed)
+                        if (success) {
+                            AppLogger.d(AppLogger.TAG_VM, "Joined household: $trimmed")
+                            householdId = trimmed
+                        } else {
+                            AppLogger.e(AppLogger.TAG_VM, "Failed to join household: $trimmed")
+                        }
+                    }
+                },
+
+                onLeaveHousehold = {
+                    scope.launch {
+                        val newId = householdRepository.leaveAndCreateSoloHousehold()
+                        AppLogger.d(AppLogger.TAG_VM, "Left household, new solo householdId=$newId")
+                        householdId = newId
+                    }
+                },
+
+                onLogout = { authViewModel.logout() }
             )
         }
     }
