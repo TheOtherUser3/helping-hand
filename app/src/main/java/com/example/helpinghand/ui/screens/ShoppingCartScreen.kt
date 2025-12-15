@@ -32,16 +32,14 @@ import com.example.helpinghand.viewmodel.ShoppingCartViewModel
 import com.example.helpinghand.viewmodel.MealsViewModel
 import com.example.helpinghand.ui.theme.ShoppingColors as C
 import androidx.compose.material.icons.filled.RestaurantMenu
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Add
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import coil.compose.rememberAsyncImagePainter
 
+private const val MAX_ITEM_CHARS = 30
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -128,7 +126,7 @@ fun ShoppingCartScreen(
                 ) {
                     Icon(
                         imageVector = Icons.Filled.ChevronRight,
-                        contentDescription = "Go Back",
+                        contentDescription = "Go to Meals",
                         tint = C.OnBackground
                     )
                 }
@@ -319,13 +317,30 @@ fun ShoppingCartScreen(
                 },
                 title = { Text("Add New Item", color = C.OnBackground) },
                 text = {
-                    OutlinedTextField(
-                        value = newItemText,
-                        onValueChange = { newItemText = it },
-                        label = { Text("Item name") },
-                        singleLine = true,
-                        modifier = Modifier.testTag("shopping_add_dialog_field")
-                    )
+                    Column {
+                        OutlinedTextField(
+                            value = newItemText,
+                            onValueChange = { input ->
+                                // Limit to MAX_ITEM_CHARS characters
+                                if (input.text.length <= MAX_ITEM_CHARS) {
+                                    newItemText = input
+                                }
+                            },
+                            label = { Text("Item name (max $MAX_ITEM_CHARS chars)") },
+                            singleLine = true,
+                            modifier = Modifier.testTag("shopping_add_dialog_field"),
+                            supportingText = {
+                                Text(
+                                    text = "${newItemText.text.length}/$MAX_ITEM_CHARS",
+                                    fontSize = 12.sp,
+                                    color = if (newItemText.text.length >= MAX_ITEM_CHARS)
+                                        MaterialTheme.colorScheme.error
+                                    else
+                                        C.OnSurfaceVariant
+                                )
+                            }
+                        )
+                    }
                 },
                 containerColor = C.Surface
             )
@@ -418,5 +433,3 @@ private fun SuggestedMealCard(
         }
     }
 }
-
-

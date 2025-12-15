@@ -1,0 +1,29 @@
+package com.example.helpinghand.data.dao
+
+import androidx.room.*
+import com.example.helpinghand.data.model.CleaningReminder
+import com.example.helpinghand.data.model.DoctorAppointment
+import kotlinx.coroutines.flow.Flow
+
+@Dao
+interface DoctorAppointmentDao {
+
+    @Query("SELECT * FROM doctor_appointments ORDER BY doctorName")
+    fun getAll(): Flow<List<DoctorAppointment>>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insert(appointment: DoctorAppointment)
+
+    @Update
+    suspend fun update(appointment: DoctorAppointment)
+
+    @Delete
+    suspend fun delete(appointment: DoctorAppointment)
+
+    // Firebase functions
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertAll(items: List<DoctorAppointment>)
+
+    @Query("DELETE FROM doctor_appointments")
+    suspend fun deleteAll()
+}

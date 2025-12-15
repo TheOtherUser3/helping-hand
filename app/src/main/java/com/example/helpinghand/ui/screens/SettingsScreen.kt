@@ -2,38 +2,67 @@ package com.example.helpinghand.ui.screens
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material.icons.filled.AccountCircle
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.ChevronRight
+import androidx.compose.material.icons.filled.ContentCopy
+import androidx.compose.material.icons.filled.ExitToApp
+import androidx.compose.material.icons.filled.Group
+import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Divider
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.ClipboardManager
+import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.TextFieldValue
-import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavHostController
+import com.example.helpinghand.data.model.HouseholdMember
 import com.example.helpinghand.ui.theme.ShoppingColors as C
 
-// Data class for household members
-data class HouseholdMember(
-    val id: String,
-    val name: String,
-    val email: String,
-    val role: String = "Member" // Owner, Admin, Member
-)
-
-// ========== UPDATED SETTINGS SCREEN ==========
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(
@@ -43,14 +72,28 @@ fun SettingsScreen(
     isDarkMode: Boolean,
     onDarkModeChange: (Boolean) -> Unit,
     navController: NavHostController,
-    currentUserName: String = "John Doe",
-    currentUserEmail: String = "john.doe@example.com",
-    householdMembers: List<HouseholdMember> = emptyList(),
-    onLogout: () -> Unit = {}
+    currentUserName: String,
+    currentUserEmail: String,
+
+    // NEW
+    householdId: String?,
+    onJoinHousehold: (String) -> Unit,
+    onLeaveHousehold: () -> Unit,
+
+    householdMembers: List<HouseholdMember>,
+    onAddHouseholdMember: (String) -> Unit,
+    onLogout: () -> Unit
 ) {
+    val clipboard: ClipboardManager = LocalClipboardManager.current
+
     var showProfileDialog by remember { mutableStateOf(false) }
     var showHouseholdDialog by remember { mutableStateOf(false) }
     var showAddMemberDialog by remember { mutableStateOf(false) }
+
+    // NEW dialogs
+    var showHouseholdCodeDialog by remember { mutableStateOf(false) }
+    var showJoinHouseholdDialog by remember { mutableStateOf(false) }
+    var showLeaveHouseholdDialog by remember { mutableStateOf(false) }
 
     Scaffold(containerColor = C.Background) { inner ->
         Column(
@@ -59,7 +102,6 @@ fun SettingsScreen(
                 .padding(inner)
                 .testTag("settings_screen")
         ) {
-            // --- Top App Bar ---
             TopAppBar(
                 navigationIcon = {
                     IconButton(
@@ -67,7 +109,7 @@ fun SettingsScreen(
                         modifier = Modifier.testTag("settings_back")
                     ) {
                         Icon(
-                            imageVector = Icons.Default.ArrowBack,
+                            imageVector = Icons.Filled.ArrowBack,
                             contentDescription = "Back",
                             tint = C.OnBackground
                         )
@@ -98,7 +140,6 @@ fun SettingsScreen(
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = C.Background)
             )
 
-            // --- Main Content ---
             Surface(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -111,7 +152,6 @@ fun SettingsScreen(
                         .padding(horizontal = 16.dp),
                     contentPadding = PaddingValues(vertical = 8.dp)
                 ) {
-                    // Profile Section
                     item {
                         Text(
                             text = "Profile",
@@ -132,7 +172,6 @@ fun SettingsScreen(
                         Divider(color = C.OnSurfaceVariant.copy(alpha = 0.15f))
                     }
 
-                    // Household Section
                     item {
                         Text(
                             text = "Household",
@@ -146,14 +185,46 @@ fun SettingsScreen(
                     item {
                         SettingsRow(
                             title = "Household Members",
-                            subtitle = "${householdMembers.size} members",
+                            subtitle = "${householdMembers.size} member(s)",
                             icon = Icons.Filled.Group,
                             onClick = { showHouseholdDialog = true }
                         )
                         Divider(color = C.OnSurfaceVariant.copy(alpha = 0.15f))
                     }
 
-                    // Appearance Section
+                    // NEW: Household code
+                    item {
+                        SettingsRow(
+                            title = "Household Code",
+                            subtitle = householdId ?: "Loading…",
+                            icon = Icons.Filled.Group,
+                            onClick = { showHouseholdCodeDialog = true }
+                        )
+                        Divider(color = C.OnSurfaceVariant.copy(alpha = 0.15f))
+                    }
+
+                    // NEW: Join household by code
+                    item {
+                        SettingsRow(
+                            title = "Join Household",
+                            subtitle = "Paste a code to join someone else’s household",
+                            icon = Icons.Filled.Group,
+                            onClick = { showJoinHouseholdDialog = true }
+                        )
+                        Divider(color = C.OnSurfaceVariant.copy(alpha = 0.15f))
+                    }
+
+                    // NEW: Leave household
+                    item {
+                        SettingsRow(
+                            title = "Leave Household",
+                            subtitle = "Create a new solo household for yourself",
+                            icon = Icons.Filled.ExitToApp,
+                            onClick = { showLeaveHouseholdDialog = true }
+                        )
+                        Divider(color = C.OnSurfaceVariant.copy(alpha = 0.15f))
+                    }
+
                     item {
                         Text(
                             text = "Appearance",
@@ -164,12 +235,11 @@ fun SettingsScreen(
                         )
                     }
 
-                    // Dynamic Theme (if sensor exists)
                     if (hasLightSensor) {
                         item {
                             SettingsToggleRow(
                                 title = "Dynamic Theme",
-                                subtitle = "Auto light/dark based on ambient light",
+                                subtitle = "Auto light / dark based on ambient light",
                                 isChecked = isDynamicTheme,
                                 onCheckedChange = onDynamicThemeChange
                             )
@@ -177,7 +247,6 @@ fun SettingsScreen(
                         }
                     }
 
-                    // Manual Light/Dark Mode
                     item {
                         SettingsToggleRow(
                             title = "Dark Mode",
@@ -189,7 +258,6 @@ fun SettingsScreen(
                         Divider(color = C.OnSurfaceVariant.copy(alpha = 0.15f))
                     }
 
-                    // Account Section
                     item {
                         Text(
                             text = "Account",
@@ -212,7 +280,6 @@ fun SettingsScreen(
             }
         }
 
-        // Profile Dialog
         if (showProfileDialog) {
             ProfileDialog(
                 name = currentUserName,
@@ -221,7 +288,6 @@ fun SettingsScreen(
             )
         }
 
-        // Household Dialog
         if (showHouseholdDialog) {
             HouseholdDialog(
                 members = householdMembers,
@@ -230,14 +296,128 @@ fun SettingsScreen(
             )
         }
 
-        // Add Member Dialog
-        if (showAddMemberDialog) {
-            AddMemberDialog(
-                onDismiss = { showAddMemberDialog = false },
-                onAdd = { email ->
-                    // Handle adding member via Firebase
-                    showAddMemberDialog = false
-                }
+        // NEW: Household Code dialog
+        if (showHouseholdCodeDialog) {
+            AlertDialog(
+                onDismissRequest = { showHouseholdCodeDialog = false },
+                title = { Text("Household Code", color = C.OnBackground) },
+                text = {
+                    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Text(
+                            text = "Share this code with someone so they can join your household:",
+                            fontSize = 14.sp,
+                            color = C.OnSurfaceVariant
+                        )
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text(
+                                text = householdId ?: "Loading…",
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = C.OnBackground,
+                                modifier = Modifier.weight(1f)
+                            )
+                            IconButton(
+                                onClick = {
+                                    val id = householdId
+                                    if (!id.isNullOrBlank()) {
+                                        clipboard.setText(AnnotatedString(id))
+                                    }
+                                },
+                                enabled = !householdId.isNullOrBlank()
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Filled.ContentCopy,
+                                    contentDescription = "Copy code",
+                                    tint = if (!householdId.isNullOrBlank()) C.Primary else C.OnSurfaceVariant
+                                )
+                            }
+                        }
+                    }
+                },
+                confirmButton = {
+                    TextButton(onClick = { showHouseholdCodeDialog = false }) {
+                        Text("Close", color = C.Primary)
+                    }
+                },
+                containerColor = C.Surface
+            )
+        }
+
+        // NEW: Join Household dialog
+        if (showJoinHouseholdDialog) {
+            var code by remember { mutableStateOf(TextFieldValue("")) }
+
+            AlertDialog(
+                onDismissRequest = { showJoinHouseholdDialog = false },
+                title = { Text("Join Household", color = C.OnBackground) },
+                text = {
+                    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Text(
+                            text = "Paste the household code you received.",
+                            fontSize = 14.sp,
+                            color = C.OnSurfaceVariant
+                        )
+                        OutlinedTextField(
+                            value = code,
+                            onValueChange = { code = it },
+                            label = { Text("Household Code") },
+                            modifier = Modifier.fillMaxWidth(),
+                            singleLine = true
+                        )
+                    }
+                },
+                confirmButton = {
+                    TextButton(
+                        onClick = {
+                            onJoinHousehold(code.text)
+                            showJoinHouseholdDialog = false
+                        },
+                        enabled = code.text.trim().isNotEmpty()
+                    ) {
+                        Text("Join", color = C.Primary)
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showJoinHouseholdDialog = false }) {
+                        Text("Cancel", color = C.OnSurfaceVariant)
+                    }
+                },
+                containerColor = C.Surface
+            )
+        }
+
+        // NEW: Leave Household confirm dialog
+        if (showLeaveHouseholdDialog) {
+            AlertDialog(
+                onDismissRequest = { showLeaveHouseholdDialog = false },
+                title = { Text("Leave Household", color = C.OnBackground) },
+                text = {
+                    Text(
+                        text = "This will remove you from the current household and create a new solo household for your account.",
+                        fontSize = 14.sp,
+                        color = C.OnSurfaceVariant
+                    )
+                },
+                confirmButton = {
+                    TextButton(
+                        onClick = {
+                            onLeaveHousehold()
+                            showLeaveHouseholdDialog = false
+                        }
+                    ) {
+                        Text("Leave", color = C.Primary)
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showLeaveHouseholdDialog = false }) {
+                        Text("Cancel", color = C.OnSurfaceVariant)
+                    }
+                },
+                containerColor = C.Surface
             )
         }
     }
@@ -392,7 +572,7 @@ private fun ProfileDialog(
 private fun HouseholdDialog(
     members: List<HouseholdMember>,
     onDismiss: () -> Unit,
-    onAddMember: () -> Unit
+    onAddMember: () -> Unit  // Keep parameter for compatibility but won't be used
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -405,57 +585,41 @@ private fun HouseholdDialog(
                 members.forEach { member ->
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Row(
-                            horizontalArrangement = Arrangement.spacedBy(12.dp),
-                            verticalAlignment = Alignment.CenterVertically
+                        Box(
+                            modifier = Modifier
+                                .size(40.dp)
+                                .clip(CircleShape)
+                                .background(C.Primary),
+                            contentAlignment = Alignment.Center
                         ) {
-                            Box(
-                                modifier = Modifier
-                                    .size(40.dp)
-                                    .clip(CircleShape)
-                                    .background(C.Primary),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Text(
-                                    text = member.name.first().toString(),
-                                    color = Color.White,
-                                    fontWeight = FontWeight.Bold
-                                )
-                            }
-                            Column {
-                                Text(
-                                    text = member.name,
-                                    fontSize = 16.sp,
-                                    color = C.OnBackground
-                                )
-                                Text(
-                                    text = member.email,
-                                    fontSize = 12.sp,
-                                    color = C.OnSurfaceVariant
-                                )
-                            }
+                            Text(
+                                text = member.displayName.firstOrNull()?.toString()
+                                    ?: member.email.firstOrNull()?.toString()
+                                    ?: "?",
+                                color = Color.White,
+                                fontWeight = FontWeight.Bold
+                            )
                         }
-                        Text(
-                            text = member.role,
-                            fontSize = 12.sp,
-                            color = C.Primary
-                        )
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Column {
+                            Text(
+                                text = member.displayName.ifBlank { member.email },
+                                fontSize = 16.sp,
+                                color = C.OnBackground
+                            )
+                            Text(
+                                text = member.email,
+                                fontSize = 12.sp,
+                                color = C.OnSurfaceVariant
+                            )
+                        }
                     }
                     Divider(color = C.OnSurfaceVariant.copy(alpha = 0.15f))
                 }
 
-                Button(
-                    onClick = onAddMember,
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = ButtonDefaults.buttonColors(containerColor = C.Primary)
-                ) {
-                    Icon(Icons.Filled.Add, contentDescription = null)
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text("Add Member")
-                }
+                // Button removed - members can only be added via household code now
             }
         },
         confirmButton = {
@@ -509,294 +673,4 @@ private fun AddMemberDialog(
         },
         containerColor = C.Surface
     )
-}
-
-// ========== LOGIN SCREEN ==========
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun LoginScreen(
-    onLoginSuccess: () -> Unit,
-    onNavigateToRegister: () -> Unit,
-    onLogin: (email: String, password: String) -> Unit
-) {
-    var email by remember { mutableStateOf(TextFieldValue("")) }
-    var password by remember { mutableStateOf(TextFieldValue("")) }
-    var passwordVisible by remember { mutableStateOf(false) }
-
-    Scaffold(containerColor = C.Background) { inner ->
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(inner),
-            contentAlignment = Alignment.Center
-        ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 32.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(16.dp)
-            ) {
-                // App Logo/Icon
-                Box(
-                    modifier = Modifier
-                        .size(100.dp)
-                        .clip(CircleShape)
-                        .background(C.Primary),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = Icons.Filled.Home,
-                        contentDescription = "App Logo",
-                        tint = Color.White,
-                        modifier = Modifier.size(60.dp)
-                    )
-                }
-
-                Text(
-                    text = "Welcome Back",
-                    fontSize = 28.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = C.OnBackground
-                )
-
-                Text(
-                    text = "Sign in to continue",
-                    fontSize = 16.sp,
-                    color = C.OnSurfaceVariant
-                )
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                // Email Field
-                OutlinedTextField(
-                    value = email,
-                    onValueChange = { email = it },
-                    label = { Text("Email") },
-                    leadingIcon = {
-                        Icon(Icons.Filled.Email, contentDescription = null)
-                    },
-                    modifier = Modifier.fillMaxWidth(),
-                    singleLine = true
-                )
-
-                // Password Field
-                OutlinedTextField(
-                    value = password,
-                    onValueChange = { password = it },
-                    label = { Text("Password") },
-                    leadingIcon = {
-                        Icon(Icons.Filled.Lock, contentDescription = null)
-                    },
-                    trailingIcon = {
-                        IconButton(onClick = { passwordVisible = !passwordVisible }) {
-                            Icon(
-                                imageVector = if (passwordVisible) Icons.Filled.Visibility
-                                else Icons.Filled.VisibilityOff,
-                                contentDescription = if (passwordVisible) "Hide password"
-                                else "Show password"
-                            )
-                        }
-                    },
-                    visualTransformation = if (passwordVisible) VisualTransformation.None
-                    else PasswordVisualTransformation(),
-                    modifier = Modifier.fillMaxWidth(),
-                    singleLine = true
-                )
-
-                Spacer(modifier = Modifier.height(8.dp))
-
-                // Login Button
-                Button(
-                    onClick = { onLogin(email.text, password.text) },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(50.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = C.Primary)
-                ) {
-                    Text("Login", fontSize = 16.sp)
-                }
-
-                // Register Link
-                Row(
-                    horizontalArrangement = Arrangement.Center,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = "Don't have an account? ",
-                        color = C.OnSurfaceVariant
-                    )
-                    Text(
-                        text = "Register",
-                        color = C.Primary,
-                        fontWeight = FontWeight.Bold,
-                        modifier = Modifier.clickable { onNavigateToRegister() }
-                    )
-                }
-            }
-        }
-    }
-}
-
-// ========== REGISTRATION SCREEN ==========
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun RegistrationScreen(
-    onRegisterSuccess: () -> Unit,
-    onNavigateToLogin: () -> Unit,
-    onRegister: (name: String, email: String, password: String) -> Unit
-) {
-    var name by remember { mutableStateOf(TextFieldValue("")) }
-    var email by remember { mutableStateOf(TextFieldValue("")) }
-    var password by remember { mutableStateOf(TextFieldValue("")) }
-    var confirmPassword by remember { mutableStateOf(TextFieldValue("")) }
-    var passwordVisible by remember { mutableStateOf(false) }
-
-    Scaffold(containerColor = C.Background) { inner ->
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(inner),
-            contentAlignment = Alignment.Center
-        ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 32.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(16.dp)
-            ) {
-                // App Logo/Icon
-                Box(
-                    modifier = Modifier
-                        .size(100.dp)
-                        .clip(CircleShape)
-                        .background(C.Primary),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = Icons.Filled.Home,
-                        contentDescription = "App Logo",
-                        tint = Color.White,
-                        modifier = Modifier.size(60.dp)
-                    )
-                }
-
-                Text(
-                    text = "Create Account",
-                    fontSize = 28.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = C.OnBackground
-                )
-
-                Text(
-                    text = "Sign up to get started",
-                    fontSize = 16.sp,
-                    color = C.OnSurfaceVariant
-                )
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                // Name Field
-                OutlinedTextField(
-                    value = name,
-                    onValueChange = { name = it },
-                    label = { Text("Full Name") },
-                    leadingIcon = {
-                        Icon(Icons.Filled.Person, contentDescription = null)
-                    },
-                    modifier = Modifier.fillMaxWidth(),
-                    singleLine = true
-                )
-
-                // Email Field
-                OutlinedTextField(
-                    value = email,
-                    onValueChange = { email = it },
-                    label = { Text("Email") },
-                    leadingIcon = {
-                        Icon(Icons.Filled.Email, contentDescription = null)
-                    },
-                    modifier = Modifier.fillMaxWidth(),
-                    singleLine = true
-                )
-
-                // Password Field
-                OutlinedTextField(
-                    value = password,
-                    onValueChange = { password = it },
-                    label = { Text("Password") },
-                    leadingIcon = {
-                        Icon(Icons.Filled.Lock, contentDescription = null)
-                    },
-                    trailingIcon = {
-                        IconButton(onClick = { passwordVisible = !passwordVisible }) {
-                            Icon(
-                                imageVector = if (passwordVisible) Icons.Filled.Visibility
-                                else Icons.Filled.VisibilityOff,
-                                contentDescription = if (passwordVisible) "Hide password"
-                                else "Show password"
-                            )
-                        }
-                    },
-                    visualTransformation = if (passwordVisible) VisualTransformation.None
-                    else PasswordVisualTransformation(),
-                    modifier = Modifier.fillMaxWidth(),
-                    singleLine = true
-                )
-
-                // Confirm Password Field
-                OutlinedTextField(
-                    value = confirmPassword,
-                    onValueChange = { confirmPassword = it },
-                    label = { Text("Confirm Password") },
-                    leadingIcon = {
-                        Icon(Icons.Filled.Lock, contentDescription = null)
-                    },
-                    visualTransformation = if (passwordVisible) VisualTransformation.None
-                    else PasswordVisualTransformation(),
-                    modifier = Modifier.fillMaxWidth(),
-                    singleLine = true
-                )
-
-                Spacer(modifier = Modifier.height(8.dp))
-
-                // Register Button
-                Button(
-                    onClick = {
-                        if (password.text == confirmPassword.text) {
-                            onRegister(name.text, email.text, password.text)
-                        }
-                    },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(50.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = C.Primary),
-                    enabled = name.text.isNotEmpty() &&
-                            email.text.isNotEmpty() &&
-                            password.text.isNotEmpty() &&
-                            password.text == confirmPassword.text
-                ) {
-                    Text("Register", fontSize = 16.sp)
-                }
-
-                // Login Link
-                Row(
-                    horizontalArrangement = Arrangement.Center,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = "Already have an account? ",
-                        color = C.OnSurfaceVariant
-                    )
-                    Text(
-                        text = "Login",
-                        color = C.Primary,
-                        fontWeight = FontWeight.Bold,
-                        modifier = Modifier.clickable { onNavigateToLogin() }
-                    )
-                }
-            }
-        }
-    }
 }
