@@ -9,4 +9,6 @@ data class Contact(
     val name: String,
     val phone: String,
     val email: String = ""
-)
+) {
+    fun displayPhone(): String = formatPhoneNumber(phone)
+}

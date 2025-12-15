@@ -32,16 +32,14 @@ class ContactsViewModel(
             )
 
     fun addContact(name: String, phone: String, email: String) {
-        val trimmedName = name.trim()
-        val trimmedPhone = phone.trim()
-        val trimmedEmail = email.trim()
+        val sanitized = sanitizeInputs(name, phone, email)
 
         AppLogger.d(
             AppLogger.TAG_VM,
-            "addContact called: name=\"$trimmedName\", phone=\"$trimmedPhone\", email=\"$trimmedEmail\""
+            "addContact called: name=\"${sanitized.name}\", phone=\"${sanitized.phone}\", email=\"${sanitized.email}\""
         )
 
-        if (trimmedName.isBlank() || (trimmedPhone.isBlank() && trimmedEmail.isBlank())) {
+        if (!sanitized.isValid) {
             AppLogger.d(AppLogger.TAG_VM, "addContact: validation failed, aborting")
             return
         }
@@ -49,28 +47,28 @@ class ContactsViewModel(
         viewModelScope.launch {
             AppLogger.d(
                 AppLogger.TAG_ASYNC,
-                "addContact: coroutine started for name=\"$trimmedName\" (via ContactsSyncRepository)"
+                "addContact: coroutine started for name=\"${sanitized.name}\" (via ContactsSyncRepository)"
             )
             try {
                 syncRepo.addContact(
-                    name = trimmedName,
-                    phone = trimmedPhone,
-                    email = trimmedEmail
+                    name = sanitized.name,
+                    phone = sanitized.phone,
+                    email = sanitized.email
                 )
                 AppLogger.d(
                     AppLogger.TAG_DB,
-                    "addContact: delegated to ContactsSyncRepository for \"$trimmedName\""
+                    "addContact: delegated to ContactsSyncRepository for \"${sanitized.name}\""
                 )
             } catch (e: Exception) {
                 AppLogger.e(
                     AppLogger.TAG_DB,
-                    "addContact: FAILED in syncRepo for name=\"$trimmedName\" message=${e.message}",
+                    "addContact: FAILED in syncRepo for name=\"${sanitized.name}\" message=${e.message}",
                     e
                 )
             } finally {
                 AppLogger.d(
                     AppLogger.TAG_ASYNC,
-                    "addContact: coroutine finished for name=\"$trimmedName\""
+                    "addContact: coroutine finished for name=\"${sanitized.name}\""
                 )
             }
         }
@@ -116,6 +114,47 @@ class ContactsViewModel(
             )
         }
     }
+
+    private data class SanitizedContact(
+        val name: String,
+        val phone: String,
+        val email: String
+    ) {
+        val isValid: Boolean =
+            name.isNotBlank() && (phone.isNotBlank() || email.isNotBlank())
+    }
+
+    private fun sanitizeInputs(name: String, phone: String, email: String): SanitizedContact {
+        val safeName = name.trim().take(MAX_NAME_CHARS)
+        val safeEmail = email.trim().take(MAX_EMAIL_CHARS)
+        val safePhone = normalizeUsPhone(phone)
+        return SanitizedContact(
+            name = safeName,
+            phone = safePhone,
+            email = safeEmail
+        )
+    }
+
+    /**
+     * Accepts:
+     * - 6666666666
+     * - 666-666-6666
+     * - spaces too
+     * Stores: digits-only, coerced to 10 digits (US-style).
+     */
+    private fun normalizeUsPhone(input: String): String {
+        val digits = input.filter { it.isDigit() }
+        if (digits.isBlank()) return ""
+
+        val normalized = if (digits.length == 11 && digits.startsWith("1")) digits.drop(1) else digits
+        return normalized.take(MAX_PHONE_DIGITS)
+    }
+
+    companion object {
+        private const val MAX_NAME_CHARS = 60
+        private const val MAX_EMAIL_CHARS = 120
+        private const val MAX_PHONE_DIGITS = 10
+    }
 }
 
 class ContactsViewModelFactory(
@@ -140,6 +179,10 @@ class ContactsSyncRepository(
 ) {
     companion object {
         private const val TAG = "ContactsSyncRepository"
+
+        private const val MAX_NAME_CHARS = 60
+        private const val MAX_EMAIL_CHARS = 120
+        private const val MAX_PHONE_DIGITS = 10
     }
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
@@ -154,7 +197,11 @@ class ContactsSyncRepository(
             try {
                 val hid = ensureHouseholdAndListener()
                 if (hid == null) {
-                    AppLogger.e(TAG, "init: householdId is null, contacts listener not started (will retry on next operation)", null)
+                    AppLogger.e(
+                        TAG,
+                        "init: householdId is null, contacts listener not started (will retry on next operation)",
+                        null
+                    )
                 }
             } catch (e: Exception) {
                 AppLogger.e(TAG, "init: FAILED ensureHouseholdAndListener message=${e.message}", e)
@@ -214,12 +261,20 @@ class ContactsSyncRepository(
                 AppLogger.d(TAG, "startListening: received contacts snapshot with ${snapshot.size()} docs for householdId=$householdId")
 
                 val contacts = snapshot.documents.mapNotNull { doc ->
-                    val name = doc.getString("name") ?: run {
+                    val rawName = doc.getString("name") ?: run {
                         AppLogger.e(TAG, "startListening: skipping contact doc ${doc.id} missing 'name' field", null)
                         return@mapNotNull null
                     }
-                    val phone = doc.getString("phone") ?: ""
-                    val email = doc.getString("email") ?: ""
+
+                    val name = rawName.trim().take(MAX_NAME_CHARS)
+                    if (name.isBlank()) {
+                        AppLogger.e(TAG, "startListening: skipping contact doc ${doc.id} blank 'name' after trim", null)
+                        return@mapNotNull null
+                    }
+
+                    val phone = normalizeUsPhone(doc.getString("phone") ?: "")
+                    val email = (doc.getString("email") ?: "").trim().take(MAX_EMAIL_CHARS)
+
                     Contact(
                         id = doc.id,
                         name = name,
@@ -241,16 +296,16 @@ class ContactsSyncRepository(
     }
 
     suspend fun addContact(name: String, phone: String, email: String) {
-        val trimmedName = name.trim()
-        val trimmedPhone = phone.trim()
-        val trimmedEmail = email.trim()
+        val safeName = name.trim().take(MAX_NAME_CHARS)
+        val safeEmail = email.trim().take(MAX_EMAIL_CHARS)
+        val safePhone = normalizeUsPhone(phone)
 
-        if (trimmedName.isBlank() || (trimmedPhone.isBlank() && trimmedEmail.isBlank())) {
+        if (safeName.isBlank() || (safePhone.isBlank() && safeEmail.isBlank())) {
             AppLogger.d(TAG, "addContact: validation failed inside syncRepo, aborting")
             return
         }
 
-        AppLogger.d(TAG, "addContact: preparing to add contact \"$trimmedName\" to Firestore")
+        AppLogger.d(TAG, "addContact: preparing to add contact \"$safeName\" to Firestore")
 
         try {
             val hid = ensureHouseholdAndListener()
@@ -262,16 +317,16 @@ class ContactsSyncRepository(
             val col = householdsCol.document(hid).collection("contacts")
             val docRef = col.document()
             val data = mapOf(
-                "name" to trimmedName,
-                "phone" to trimmedPhone,
-                "email" to trimmedEmail
+                "name" to safeName,
+                "phone" to safePhone,  // digits-only stored
+                "email" to safeEmail
             )
 
             AppLogger.d(TAG, "addContact: setting Firestore contact doc id=${docRef.id}")
             docRef.set(data).await()
             AppLogger.d(TAG, "addContact: Firestore write success for contact id=${docRef.id}")
         } catch (e: Exception) {
-            AppLogger.e(TAG, "addContact: FAILED Firestore write for \"$trimmedName\" message=${e.message}", e)
+            AppLogger.e(TAG, "addContact: FAILED Firestore write for \"$safeName\" message=${e.message}", e)
             throw e
         }
     }
@@ -303,5 +358,13 @@ class ContactsSyncRepository(
         listener?.remove()
         listener = null
         cachedHouseholdId = null
+    }
+
+    private fun normalizeUsPhone(input: String): String {
+        val digits = input.filter { it.isDigit() }
+        if (digits.isBlank()) return ""
+
+        val normalized = if (digits.length == 11 && digits.startsWith("1")) digits.drop(1) else digits
+        return normalized.take(MAX_PHONE_DIGITS)
     }
 }
