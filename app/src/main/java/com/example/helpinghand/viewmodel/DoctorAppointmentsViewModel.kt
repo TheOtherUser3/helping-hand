@@ -126,6 +126,63 @@ class DoctorAppointmentsViewModel(
         }
     }
 
+    @RequiresApi(Build.VERSION_CODES.O)
+    fun updateAppointment(
+        appointment: DoctorAppointment,
+        nameInput: String,
+        type: String,
+        phoneInput: String,
+        officeInput: String,
+        intervalMonthsInput: Int
+    ) {
+        val name = nameInput.trim().take(MAX_NAME_CHARS)
+        val office = officeInput.trim().take(MAX_OFFICE_CHARS)
+        val phoneNormalized = normalizePhone(phoneInput)
+        val interval = intervalMonthsInput.coerceIn(1, 60)
+
+        AppLogger.d(
+            AppLogger.TAG_VM,
+            "DoctorAppointmentsViewModel.updateAppointment id=${appointment.id}, name=\"$name\", type=$type"
+        )
+
+        if (name.isBlank()) {
+            AppLogger.d(AppLogger.TAG_VM, "updateAppointment: name blank, skipping update")
+            return
+        }
+
+        viewModelScope.launch {
+            AppLogger.d(
+                AppLogger.TAG_ASYNC,
+                "updateAppointment: coroutine started for id=${appointment.id} (via DoctorAppointmentsSyncRepository)"
+            )
+            try {
+                syncRepo.updateAppointment(
+                    appointment = appointment,
+                    newName = name,
+                    newType = type,
+                    newPhoneRaw = phoneNormalized,
+                    newOfficeName = office,
+                    newIntervalMonths = interval
+                )
+                AppLogger.d(
+                    AppLogger.TAG_DB,
+                    "updateAppointment: delegated to DoctorAppointmentsSyncRepository for id=${appointment.id}"
+                )
+            } catch (e: Exception) {
+                AppLogger.e(
+                    AppLogger.TAG_DB,
+                    "updateAppointment FAILED in syncRepo for id=${appointment.id}: ${e.message}",
+                    e
+                )
+            } finally {
+                AppLogger.d(
+                    AppLogger.TAG_ASYNC,
+                    "updateAppointment: coroutine finished for id=${appointment.id}"
+                )
+            }
+        }
+    }
+
     fun deleteAppointment(appointment: DoctorAppointment) {
         viewModelScope.launch {
             AppLogger.d(
@@ -379,6 +436,50 @@ class DoctorAppointmentsSyncRepository(
             AppLogger.d(TAG, "updateNextVisit: Firestore update success for doctor id=${appointment.id}")
         } catch (e: Exception) {
             AppLogger.e(TAG, "updateNextVisit: FAILED Firestore update for doctor id=${appointment.id} message=${e.message}", e)
+            throw e
+        }
+    }
+
+    suspend fun updateAppointment(
+        appointment: DoctorAppointment,
+        newName: String,
+        newType: String,
+        newPhoneRaw: String,
+        newOfficeName: String,
+        newIntervalMonths: Int
+    ) {
+        AppLogger.d(
+            TAG,
+            "updateAppointment: preparing to update doctor id=${appointment.id} name=\"$newName\" type=$newType"
+        )
+
+        try {
+            val hid = ensureHouseholdAndListener()
+            if (hid == null) {
+                AppLogger.e(TAG, "updateAppointment: householdId is null, aborting", null)
+                return
+            }
+
+            val docRef = householdsCol.document(hid)
+                .collection("doctor_appointments")
+                .document(appointment.id)
+
+            val updates = mapOf(
+                "doctorName" to newName.trim(),
+                "type" to newType,
+                "phoneRaw" to newPhoneRaw,
+                "officeName" to newOfficeName.trim(),
+                "intervalMonths" to newIntervalMonths
+            )
+
+            docRef.update(updates).await()
+            AppLogger.d(TAG, "updateAppointment: Firestore update success for doctor id=${appointment.id}")
+        } catch (e: Exception) {
+            AppLogger.e(
+                TAG,
+                "updateAppointment: FAILED Firestore update for doctor id=${appointment.id} message=${e.message}",
+                e
+            )
             throw e
         }
     }
