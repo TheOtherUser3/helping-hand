@@ -517,6 +517,50 @@ class DoctorAppointmentsSyncRepository(
         }
     }
 
+    suspend fun updateAppointment(
+        appointment: DoctorAppointment,
+        newName: String,
+        newType: String,
+        newPhoneRaw: String,
+        newOfficeName: String,
+        newIntervalMonths: Int
+    ) {
+        AppLogger.d(
+            TAG,
+            "updateAppointment: preparing to update doctor id=${appointment.id} name=\"$newName\" type=$newType"
+        )
+
+        try {
+            val hid = ensureHouseholdAndListener()
+            if (hid == null) {
+                AppLogger.e(TAG, "updateAppointment: householdId is null, aborting", null)
+                return
+            }
+
+            val docRef = householdsCol.document(hid)
+                .collection("doctor_appointments")
+                .document(appointment.id)
+
+            val updates = mapOf(
+                "doctorName" to newName.trim(),
+                "type" to newType,
+                "phoneRaw" to newPhoneRaw,
+                "officeName" to newOfficeName.trim(),
+                "intervalMonths" to newIntervalMonths
+            )
+
+            docRef.update(updates).await()
+            AppLogger.d(TAG, "updateAppointment: Firestore update success for doctor id=${appointment.id}")
+        } catch (e: Exception) {
+            AppLogger.e(
+                TAG,
+                "updateAppointment: FAILED Firestore update for doctor id=${appointment.id} message=${e.message}",
+                e
+            )
+            throw e
+        }
+    }
+
     suspend fun deleteAppointment(appointment: DoctorAppointment) {
         AppLogger.d(TAG, "deleteAppointment: preparing to delete doctor id=${appointment.id} from Firestore")
 
