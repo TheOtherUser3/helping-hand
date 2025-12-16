@@ -48,11 +48,6 @@ class DoctorAppointmentsViewModel(
         val phoneNormalized = normalizePhone(phoneInput)
         val interval = intervalMonthsInput.coerceIn(1, 60)
 
-        AppLogger.d(
-            AppLogger.TAG_VM,
-            "DoctorAppointmentsViewModel.addAppointment name=\"$name\", type=$type, phone=\"$phoneNormalized\""
-        )
-
         if (name.isBlank()) {
             AppLogger.d(AppLogger.TAG_VM, "addAppointment: name blank, skipping insert")
             return
@@ -62,10 +57,6 @@ class DoctorAppointmentsViewModel(
         val nextEpoch = today.plusMonths(interval.toLong()).toEpochDay().toInt()
 
         viewModelScope.launch {
-            AppLogger.d(
-                AppLogger.TAG_ASYNC,
-                "addAppointment: coroutine started for name=\"$name\" (via DoctorAppointmentsSyncRepository)"
-            )
             try {
                 syncRepo.addAppointment(
                     name = name,
@@ -75,21 +66,8 @@ class DoctorAppointmentsViewModel(
                     intervalMonths = interval,
                     nextVisitEpochDay = nextEpoch
                 )
-                AppLogger.d(
-                    AppLogger.TAG_DB,
-                    "addAppointment: delegated to DoctorAppointmentsSyncRepository for \"$name\""
-                )
             } catch (e: Exception) {
-                AppLogger.e(
-                    AppLogger.TAG_DB,
-                    "addAppointment FAILED in syncRepo for \"$name\": ${e.message}",
-                    e
-                )
-            } finally {
-                AppLogger.d(
-                    AppLogger.TAG_ASYNC,
-                    "addAppointment: coroutine finished for name=\"$name\""
-                )
+                AppLogger.e(AppLogger.TAG_DB, "addAppointment FAILED: ${e.message}", e)
             }
         }
     }
@@ -97,37 +75,15 @@ class DoctorAppointmentsViewModel(
     @RequiresApi(Build.VERSION_CODES.O)
     fun updateNextVisit(appointment: DoctorAppointment, newDate: LocalDate) {
         val newEpoch = newDate.toEpochDay().toInt()
-
         viewModelScope.launch {
-            AppLogger.d(
-                AppLogger.TAG_ASYNC,
-                "updateNextVisit: coroutine started for id=${appointment.id} (via DoctorAppointmentsSyncRepository)"
-            )
             try {
-                syncRepo.updateNextVisit(
-                    appointment = appointment,
-                    newNextVisitEpochDay = newEpoch
-                )
-                AppLogger.d(
-                    AppLogger.TAG_DB,
-                    "updateNextVisit: delegated to DoctorAppointmentsSyncRepository for id=${appointment.id}, newEpoch=$newEpoch"
-                )
+                syncRepo.updateNextVisit(appointment, newEpoch)
             } catch (e: Exception) {
-                AppLogger.e(
-                    AppLogger.TAG_DB,
-                    "updateNextVisit FAILED in syncRepo for id=${appointment.id}: ${e.message}",
-                    e
-                )
-            } finally {
-                AppLogger.d(
-                    AppLogger.TAG_ASYNC,
-                    "updateNextVisit: coroutine finished for id=${appointment.id}"
-                )
+                AppLogger.e(AppLogger.TAG_DB, "updateNextVisit FAILED: ${e.message}", e)
             }
         }
     }
 
-    @RequiresApi(Build.VERSION_CODES.O)
     fun updateAppointment(
         appointment: DoctorAppointment,
         nameInput: String,
@@ -141,21 +97,12 @@ class DoctorAppointmentsViewModel(
         val phoneNormalized = normalizePhone(phoneInput)
         val interval = intervalMonthsInput.coerceIn(1, 60)
 
-        AppLogger.d(
-            AppLogger.TAG_VM,
-            "DoctorAppointmentsViewModel.updateAppointment id=${appointment.id}, name=\"$name\", type=$type"
-        )
-
         if (name.isBlank()) {
             AppLogger.d(AppLogger.TAG_VM, "updateAppointment: name blank, skipping update")
             return
         }
 
         viewModelScope.launch {
-            AppLogger.d(
-                AppLogger.TAG_ASYNC,
-                "updateAppointment: coroutine started for id=${appointment.id} (via DoctorAppointmentsSyncRepository)"
-            )
             try {
                 syncRepo.updateAppointment(
                     appointment = appointment,
@@ -165,68 +112,20 @@ class DoctorAppointmentsViewModel(
                     newOfficeName = office,
                     newIntervalMonths = interval
                 )
-                AppLogger.d(
-                    AppLogger.TAG_DB,
-                    "updateAppointment: delegated to DoctorAppointmentsSyncRepository for id=${appointment.id}"
-                )
             } catch (e: Exception) {
-                AppLogger.e(
-                    AppLogger.TAG_DB,
-                    "updateAppointment FAILED in syncRepo for id=${appointment.id}: ${e.message}",
-                    e
-                )
-            } finally {
-                AppLogger.d(
-                    AppLogger.TAG_ASYNC,
-                    "updateAppointment: coroutine finished for id=${appointment.id}"
-                )
+                AppLogger.e(AppLogger.TAG_DB, "updateAppointment FAILED: ${e.message}", e)
             }
         }
     }
 
     fun deleteAppointment(appointment: DoctorAppointment) {
         viewModelScope.launch {
-            AppLogger.d(
-                AppLogger.TAG_ASYNC,
-                "deleteAppointment: coroutine started for id=${appointment.id} (via DoctorAppointmentsSyncRepository)"
-            )
             try {
                 syncRepo.deleteAppointment(appointment)
-                AppLogger.d(
-                    AppLogger.TAG_DB,
-                    "deleteAppointment: delegated to DoctorAppointmentsSyncRepository for id=${appointment.id}"
-                )
             } catch (e: Exception) {
-                AppLogger.e(
-                    AppLogger.TAG_DB,
-                    "deleteAppointment FAILED in syncRepo for id=${appointment.id}: ${e.message}",
-                    e
-                )
-            } finally {
-                AppLogger.d(
-                    AppLogger.TAG_ASYNC,
-                    "deleteAppointment: coroutine finished for id=${appointment.id}"
-                )
+                AppLogger.e(AppLogger.TAG_DB, "deleteAppointment FAILED: ${e.message}", e)
             }
         }
-    }
-
-    override fun onCleared() {
-        super.onCleared()
-        try {
-            AppLogger.d(AppLogger.TAG_VM, "DoctorAppointmentsViewModel.onCleared: clearing sync listener")
-            syncRepo.clear()
-        } catch (e: Exception) {
-            AppLogger.e(
-                AppLogger.TAG_VM,
-                "DoctorAppointmentsViewModel.onCleared: FAILED to clear sync listener message=${e.message}",
-                e
-            )
-        }
-    }
-
-    private fun normalizePhone(input: String): String {
-        return input.filter { it.isDigit() }.take(MAX_PHONE_DIGITS)
     }
 
     fun onHouseholdIdChanged(newHouseholdId: String?) {
@@ -234,6 +133,14 @@ class DoctorAppointmentsViewModel(
         syncRepo.setHouseholdId(newHouseholdId)
     }
 
+    override fun onCleared() {
+        super.onCleared()
+        syncRepo.clear()
+    }
+
+    private fun normalizePhone(input: String): String {
+        return input.filter { it.isDigit() }.take(MAX_PHONE_DIGITS)
+    }
 
     companion object {
         private const val MAX_NAME_CHARS = 60
@@ -255,8 +162,6 @@ class DoctorAppointmentsViewModelFactory(
     }
 }
 
-// Firebase sync for Doctor Appointments
-
 class DoctorAppointmentsSyncRepository(
     private val dao: DoctorAppointmentDao,
     private val householdRepo: HouseholdRepository = HouseholdRepository(),
@@ -273,36 +178,22 @@ class DoctorAppointmentsSyncRepository(
     @Volatile private var cachedHouseholdId: String? = null
 
     init {
-        AppLogger.d(TAG, "init: attempting to start doctor appointments sync listener")
         scope.launch {
             try {
-                val hid = ensureHouseholdAndListener()
-                if (hid == null) {
-                    AppLogger.e(TAG, "init: householdId is null, doctor listener not started (will retry on next operation)", null)
-                }
+                ensureHouseholdAndListener()
             } catch (e: Exception) {
-                AppLogger.e(TAG, "init: FAILED ensureHouseholdAndListener message=${e.message}", e)
+                AppLogger.e(TAG, "init ensureHouseholdAndListener FAILED: ${e.message}", e)
             }
         }
     }
 
     private suspend fun resolveHouseholdId(): String? {
-        val existing = cachedHouseholdId
-        if (existing != null) return existing
-
-        AppLogger.d(TAG, "resolveHouseholdId: cache miss, calling HouseholdRepository.getOrCreateHouseholdId()")
+        cachedHouseholdId?.let { return it }
         return try {
             val hid = householdRepo.getOrCreateHouseholdId()
-            if (hid == null) {
-                AppLogger.e(TAG, "resolveHouseholdId: returned null householdId", null)
-                null
-            } else {
-                cachedHouseholdId = hid
-                AppLogger.d(TAG, "resolveHouseholdId: resolved householdId=$hid")
-                hid
-            }
+            if (hid.isNullOrBlank()) null else hid.also { cachedHouseholdId = it }
         } catch (e: Exception) {
-            AppLogger.e(TAG, "resolveHouseholdId: FAILED message=${e.message}", e)
+            AppLogger.e(TAG, "resolveHouseholdId FAILED: ${e.message}", e)
             null
         }
     }
@@ -310,64 +201,42 @@ class DoctorAppointmentsSyncRepository(
     private suspend fun ensureHouseholdAndListener(): String? {
         val hid = resolveHouseholdId() ?: return null
         if (listener != null) return hid
-
-        AppLogger.d(TAG, "ensureHouseholdAndListener: attaching listener for householdId=$hid (doctor appointments)")
         startListening(hid)
         return hid
     }
 
     private fun startListening(householdId: String) {
-        AppLogger.d(TAG, "startListening: attaching snapshot listener for householdId=$householdId (doctor appointments)")
         listener?.remove()
         listener = householdsCol.document(householdId)
             .collection("doctor_appointments")
             .addSnapshotListener { snapshot, error ->
-                if (error != null) {
-                    AppLogger.e(
-                        TAG,
-                        "startListening: snapshot error for doctor appointments householdId=$householdId message=${error.message}",
-                        error
-                    )
-                    return@addSnapshotListener
-                }
-                if (snapshot == null) {
-                    AppLogger.e(TAG, "startListening: snapshot is null for doctor appointments householdId=$householdId", null)
+                if (error != null || snapshot == null) {
+                    AppLogger.e(TAG, "snapshot error: ${error?.message}", error)
                     return@addSnapshotListener
                 }
 
-                AppLogger.d(TAG, "startListening: received doctor appointments snapshot with ${snapshot.size()} docs for householdId=$householdId")
-
-                val appointments = snapshot.documents.mapNotNull { doc ->
-                    val doctorName = doc.getString("doctorName") ?: run {
-                        AppLogger.e(TAG, "startListening: skipping doctor doc ${doc.id} missing 'doctorName' field", null)
-                        return@mapNotNull null
-                    }
-                    val type = doc.getString("type") ?: ""
-                    val lastVisitEpochDay = doc.getLong("lastVisitEpochDay")?.toInt()
-                    val nextVisitEpochDay = doc.getLong("nextVisitEpochDay")?.toInt()
-                    val phoneRaw = doc.getString("phoneRaw") ?: ""
-                    val officeName = doc.getString("officeName") ?: ""
-                    val intervalMonths = (doc.getLong("intervalMonths") ?: 0L).toInt()
-
+                val remote = snapshot.documents.mapNotNull { doc ->
+                    val doctorName = doc.getString("doctorName") ?: return@mapNotNull null
                     DoctorAppointment(
                         id = doc.id,
                         doctorName = doctorName,
-                        type = type,
-                        lastVisitEpochDay = lastVisitEpochDay,
-                        nextVisitEpochDay = nextVisitEpochDay,
-                        phoneRaw = phoneRaw,
-                        officeName = officeName,
-                        intervalMonths = intervalMonths
+                        type = doc.getString("type") ?: "",
+                        lastVisitEpochDay = doc.getLong("lastVisitEpochDay")?.toInt(),
+                        nextVisitEpochDay = doc.getLong("nextVisitEpochDay")?.toInt(),
+                        phoneRaw = doc.getString("phoneRaw") ?: "",
+                        officeName = doc.getString("officeName") ?: "",
+                        intervalMonths = (doc.getLong("intervalMonths") ?: 0L).toInt()
                     )
                 }
 
+                // IMPORTANT FIX:
+                // Do NOT deleteAll() on every snapshot. That wipes local-only items when Firestore is empty/slow.
+                // Instead: upsert remote into Room (REPLACE by id).
                 scope.launch {
                     try {
-                        AppLogger.d(TAG, "startListening: replacing local doctor appointments with ${appointments.size} items")
-                        dao.deleteAll()
-                        if (appointments.isNotEmpty()) dao.insertAll(appointments)
+                        dao.insertAll(remote)
                     } catch (e: Exception) {
-                        AppLogger.e(TAG, "startListening: FAILED to sync doctor appointments snapshot to Room message=${e.message}", e)
+                        AppLogger.e(TAG, "snapshot -> Room upsert FAILED: ${e.message}", e)
                     }
                 }
             }
@@ -382,94 +251,58 @@ class DoctorAppointmentsSyncRepository(
         nextVisitEpochDay: Int
     ) {
         val trimmedName = name.trim()
-        val trimmedOffice = officeName.trim()
+        if (trimmedName.isBlank()) return
 
-        if (trimmedName.isBlank()) {
-            AppLogger.d(TAG, "addAppointment: name blank inside syncRepo, aborting")
-            return
-        }
-
-        AppLogger.d(
-            TAG,
-            "addAppointment: preparing to add doctor appointment \"$trimmedName\" type=$type interval=$intervalMonths nextVisit=$nextVisitEpochDay"
+        val id = UUID.randomUUID().toString()
+        val local = DoctorAppointment(
+            id = id,
+            doctorName = trimmedName,
+            type = type,
+            lastVisitEpochDay = null,
+            nextVisitEpochDay = nextVisitEpochDay,
+            phoneRaw = phoneRaw,
+            officeName = officeName.trim(),
+            intervalMonths = intervalMonths
         )
 
-        // --- UI TEST + OFFLINE FRIENDLY BEHAVIOR ---
-        // Always insert locally first so the UI updates even if Firebase is unavailable.
-        // Use a stable id, and reuse it for Firestore so we do not duplicate when the listener syncs.
-        val localId = UUID.randomUUID().toString()
+        // Local-first (UI/test friendly)
+        dao.insert(local)
+
+        // Best-effort Firestore
+        val hid = ensureHouseholdAndListener() ?: return
+        val docRef = householdsCol.document(hid).collection("doctor_appointments").document(id)
+        val data = mapOf(
+            "doctorName" to local.doctorName,
+            "type" to local.type,
+            "lastVisitEpochDay" to local.lastVisitEpochDay,
+            "nextVisitEpochDay" to local.nextVisitEpochDay,
+            "phoneRaw" to local.phoneRaw,
+            "officeName" to local.officeName,
+            "intervalMonths" to local.intervalMonths
+        )
         try {
-            dao.insertAll(
-                listOf(
-                    DoctorAppointment(
-                        id = localId,
-                        doctorName = trimmedName,
-                        type = type,
-                        lastVisitEpochDay = null,
-                        nextVisitEpochDay = nextVisitEpochDay,
-                        phoneRaw = phoneRaw,
-                        officeName = trimmedOffice,
-                        intervalMonths = intervalMonths
-                    )
-                )
-            )
-            AppLogger.d(TAG, "addAppointment: inserted into Room immediately id=$localId")
-        } catch (e: Exception) {
-            AppLogger.e(TAG, "addAppointment: FAILED local Room insert message=${e.message}", e)
-            return
-        }
-
-        // Best-effort remote write.
-        try {
-            val hid = ensureHouseholdAndListener()
-            if (hid == null) {
-                AppLogger.e(TAG, "addAppointment: householdId is null, keeping local-only appointment id=$localId", null)
-                return
-            }
-
-            val col = householdsCol.document(hid).collection("doctor_appointments")
-            val docRef = col.document(localId)
-            val data = mapOf(
-                "doctorName" to trimmedName,
-                "type" to type,
-                "lastVisitEpochDay" to null,
-                "nextVisitEpochDay" to nextVisitEpochDay,
-                "phoneRaw" to phoneRaw,
-                "officeName" to trimmedOffice,
-                "intervalMonths" to intervalMonths
-            )
-
-            AppLogger.d(TAG, "addAppointment: setting Firestore doctor doc id=${docRef.id}")
             docRef.set(data).await()
-            AppLogger.d(TAG, "addAppointment: Firestore write success for doctor id=${docRef.id}")
         } catch (e: Exception) {
-            AppLogger.e(TAG, "addAppointment: Firestore write FAILED for id=$localId message=${e.message}", e)
-            // Keep local item, do not rethrow.
+            AppLogger.e(TAG, "addAppointment Firestore FAILED: ${e.message}", e)
         }
     }
 
-    suspend fun updateNextVisit(
-        appointment: DoctorAppointment,
-        newNextVisitEpochDay: Int
-    ) {
-        AppLogger.d(TAG, "updateNextVisit: preparing to update doctor id=${appointment.id} newNextVisit=$newNextVisitEpochDay")
+    suspend fun updateNextVisit(appointment: DoctorAppointment, newNextVisitEpochDay: Int) {
+        val updated = appointment.copy(nextVisitEpochDay = newNextVisitEpochDay)
 
+        // Local-first so UI updates immediately
+        dao.update(updated)
+
+        // Best-effort Firestore
+        val hid = ensureHouseholdAndListener() ?: return
         try {
-            val hid = ensureHouseholdAndListener()
-            if (hid == null) {
-                AppLogger.e(TAG, "updateNextVisit: householdId is null, aborting", null)
-                return
-            }
-
-            val docRef = householdsCol.document(hid)
+            householdsCol.document(hid)
                 .collection("doctor_appointments")
                 .document(appointment.id)
-
-            docRef.update("nextVisitEpochDay", newNextVisitEpochDay).await()
-            AppLogger.d(TAG, "updateNextVisit: Firestore update success for doctor id=${appointment.id}")
+                .update("nextVisitEpochDay", newNextVisitEpochDay)
+                .await()
         } catch (e: Exception) {
-            AppLogger.e(TAG, "updateNextVisit: FAILED Firestore update for doctor id=${appointment.id} message=${e.message}", e)
-            // Keep local state; do not crash in offline/test environments.
+            AppLogger.e(TAG, "updateNextVisit Firestore FAILED: ${e.message}", e)
         }
     }
 
@@ -481,134 +314,67 @@ class DoctorAppointmentsSyncRepository(
         newOfficeName: String,
         newIntervalMonths: Int
     ) {
-        AppLogger.d(
-            TAG,
-            "updateAppointment: preparing to update doctor id=${appointment.id} name=\"$newName\" type=$newType"
+        val updated = appointment.copy(
+            doctorName = newName.trim(),
+            type = newType,
+            phoneRaw = newPhoneRaw,
+            officeName = newOfficeName.trim(),
+            intervalMonths = newIntervalMonths
         )
 
-        try {
-            val hid = ensureHouseholdAndListener()
-            if (hid == null) {
-                AppLogger.e(TAG, "updateAppointment: householdId is null, aborting", null)
-                return
-            }
+        // Local-first
+        dao.update(updated)
 
-            val docRef = householdsCol.document(hid)
-                .collection("doctor_appointments")
-                .document(appointment.id)
-
-            val updates = mapOf(
-                "doctorName" to newName.trim(),
-                "type" to newType,
-                "phoneRaw" to newPhoneRaw,
-                "officeName" to newOfficeName.trim(),
-                "intervalMonths" to newIntervalMonths
-            )
-
-            docRef.update(updates).await()
-            AppLogger.d(TAG, "updateAppointment: Firestore update success for doctor id=${appointment.id}")
-        } catch (e: Exception) {
-            AppLogger.e(
-                TAG,
-                "updateAppointment: FAILED Firestore update for doctor id=${appointment.id} message=${e.message}",
-                e
-            )
-            // Keep local state; do not crash in offline/test environments.
-        }
-    }
-
-    suspend fun updateAppointment(
-        appointment: DoctorAppointment,
-        newName: String,
-        newType: String,
-        newPhoneRaw: String,
-        newOfficeName: String,
-        newIntervalMonths: Int
-    ) {
-        AppLogger.d(
-            TAG,
-            "updateAppointment: preparing to update doctor id=${appointment.id} name=\"$newName\" type=$newType"
+        // Best-effort Firestore
+        val hid = ensureHouseholdAndListener() ?: return
+        val updates = mapOf(
+            "doctorName" to updated.doctorName,
+            "type" to updated.type,
+            "phoneRaw" to updated.phoneRaw,
+            "officeName" to updated.officeName,
+            "intervalMonths" to updated.intervalMonths
         )
-
         try {
-            val hid = ensureHouseholdAndListener()
-            if (hid == null) {
-                AppLogger.e(TAG, "updateAppointment: householdId is null, aborting", null)
-                return
-            }
-
-            val docRef = householdsCol.document(hid)
+            householdsCol.document(hid)
                 .collection("doctor_appointments")
-                .document(appointment.id)
-
-            val updates = mapOf(
-                "doctorName" to newName.trim(),
-                "type" to newType,
-                "phoneRaw" to newPhoneRaw,
-                "officeName" to newOfficeName.trim(),
-                "intervalMonths" to newIntervalMonths
-            )
-
-            docRef.update(updates).await()
-            AppLogger.d(TAG, "updateAppointment: Firestore update success for doctor id=${appointment.id}")
+                .document(updated.id)
+                .update(updates)
+                .await()
         } catch (e: Exception) {
-            AppLogger.e(
-                TAG,
-                "updateAppointment: FAILED Firestore update for doctor id=${appointment.id} message=${e.message}",
-                e
-            )
-            throw e
+            AppLogger.e(TAG, "updateAppointment Firestore FAILED: ${e.message}", e)
         }
     }
 
     suspend fun deleteAppointment(appointment: DoctorAppointment) {
-        AppLogger.d(TAG, "deleteAppointment: preparing to delete doctor id=${appointment.id} from Firestore")
+        // Local-first
+        dao.delete(appointment)
 
+        // Best-effort Firestore
+        val hid = ensureHouseholdAndListener() ?: return
         try {
-            val hid = ensureHouseholdAndListener()
-            if (hid == null) {
-                AppLogger.e(TAG, "deleteAppointment: householdId is null, aborting", null)
-                return
-            }
-
-            val docRef = householdsCol.document(hid)
+            householdsCol.document(hid)
                 .collection("doctor_appointments")
                 .document(appointment.id)
-
-            docRef.delete().await()
-            AppLogger.d(TAG, "deleteAppointment: Firestore delete success for doctor id=${appointment.id}")
+                .delete()
+                .await()
         } catch (e: Exception) {
-            AppLogger.e(TAG, "deleteAppointment: FAILED Firestore delete for doctor id=${appointment.id} message=${e.message}", e)
-            // Keep local state; do not crash in offline/test environments.
+            AppLogger.e(TAG, "deleteAppointment Firestore FAILED: ${e.message}", e)
         }
     }
 
     fun clear() {
-        AppLogger.d(TAG, "clear: removing doctor appointments snapshot listener and resetting household cache")
         listener?.remove()
         listener = null
-        cachedHouseholdId = null
     }
 
     fun setHouseholdId(newHouseholdId: String?) {
         val normalized = newHouseholdId?.trim()?.takeIf { it.isNotBlank() }
-
-        // No change, do nothing
         if (normalized == cachedHouseholdId) return
 
-        AppLogger.d(TAG, "setHouseholdId: switching doctor appointments sync from $cachedHouseholdId -> $normalized")
-
-        // Kill the old listener
         listener?.remove()
         listener = null
-
-        // Update cache
         cachedHouseholdId = normalized
 
-        // Attach new listener if we have an id
-        if (normalized != null) {
-            startListening(normalized)
-        }
+        if (normalized != null) startListening(normalized)
     }
-
 }
