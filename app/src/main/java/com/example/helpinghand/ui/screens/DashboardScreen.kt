@@ -176,7 +176,8 @@ fun DashboardScreen(
                             icon = Icons.Filled.CalendarToday,
                             modifier = Modifier
                                 .weight(1f)
-                                .fillMaxHeight(),
+                                .fillMaxHeight()
+                                .testTag("tile_appointments"),
                             onClick = { navController.navigate("appointments") }
                         )
 

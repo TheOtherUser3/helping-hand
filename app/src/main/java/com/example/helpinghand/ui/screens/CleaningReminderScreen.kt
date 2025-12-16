@@ -22,6 +22,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
@@ -52,7 +53,7 @@ fun CleaningReminderScreen(
     // Assignee selection state (only used when householdMembers.size > 1)
     var assigneeExpanded by remember { mutableStateOf(false) }
     var selectedMember by remember { mutableStateOf<HouseholdMember?>(null) }
-
+    var showHelpDialog by remember { mutableStateOf(false) }
     val membersByUid = remember(householdMembers) {
         householdMembers.associateBy { it.uid }
     }
@@ -71,7 +72,7 @@ fun CleaningReminderScreen(
         buildList {
             add(null to "Unassigned")
             householdMembers.forEach { member ->
-                val label = member.displayName.takeIf { it.isNotBlank() } ?: member.email
+                val label = memberDisplayLabel(member)
                 add(member.uid to label)
             }
         }
@@ -103,15 +104,17 @@ fun CleaningReminderScreen(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
-                        Box(
+                        // Replace person icon with help button
+                        IconButton(
+                            onClick = { showHelpDialog = true },
                             modifier = Modifier
                                 .size(36.dp)
-                                .background(C.Primary, CircleShape),
-                            contentAlignment = Alignment.Center
+                                .clip(CircleShape)
+                                .background(C.Primary)
                         ) {
                             Icon(
-                                imageVector = Icons.Filled.Person,
-                                contentDescription = "Profile",
+                                imageVector = Icons.Filled.Help,
+                                contentDescription = "Help",
                                 tint = C.Surface
                             )
                         }
@@ -119,7 +122,7 @@ fun CleaningReminderScreen(
                             text = "Cleaning",
                             fontSize = 20.sp,
                             color = C.OnBackground,
-                            modifier = Modifier.testTag("cleaning_title")
+                            modifier = Modifier.testTag("dashboard_title")
                         )
                     }
                 },
@@ -382,10 +385,7 @@ fun CleaningReminderScreen(
                                 expanded = assigneeExpanded,
                                 onExpandedChange = { assigneeExpanded = !assigneeExpanded }
                             ) {
-                                val selectedLabel =
-                                    selectedMember?.displayName?.takeIf { it.isNotBlank() }
-                                        ?: selectedMember?.email
-                                        ?: "Unassigned"
+                                val selectedLabel = selectedMember?.let { memberDisplayLabel(it) } ?: "Unassigned"
 
                                 TextField(
                                     value = selectedLabel,
@@ -414,9 +414,7 @@ fun CleaningReminderScreen(
                                     )
 
                                     householdMembers.forEach { member ->
-                                        val label =
-                                            member.displayName.takeIf { it.isNotBlank() }
-                                                ?: member.email
+                                        val label = memberDisplayLabel(member)
                                         DropdownMenuItem(
                                             text = { Text(label) },
                                             onClick = {
@@ -469,6 +467,59 @@ fun CleaningReminderScreen(
                 },
                 containerColor = C.Surface
             )
+        }
+    }
+    if (showHelpDialog) {
+        OnboardingDialog(onDismiss = { showHelpDialog = false })}
+}
+
+@Composable
+private fun CleaningSectionHeader(
+    title: String,
+    icon: androidx.compose.ui.graphics.vector.ImageVector
+) {
+    // Nicer header: pill surface with icon + label
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(C.SurfaceVariant) // ensures sticky header masks items beneath
+            .padding(top = 6.dp, bottom = 6.dp)
+    ) {
+        Surface(
+            modifier = Modifier
+                .fillMaxWidth()
+                .shadow(2.dp, RoundedCornerShape(999.dp), clip = false),
+            shape = RoundedCornerShape(999.dp),
+            color = C.Surface,
+            tonalElevation = 2.dp,
+            border = BorderStroke(1.dp, C.Primary.copy(alpha = 0.25f))
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 14.dp, vertical = 10.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                Surface(
+                    shape = CircleShape,
+                    color = C.Primary.copy(alpha = 0.12f)
+                ) {
+                    Icon(
+                        imageVector = icon,
+                        contentDescription = null,
+                        tint = C.Primary,
+                        modifier = Modifier.padding(6.dp)
+                    )
+                }
+
+                Text(
+                    text = title,
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = C.OnSurfaceVariant
+                )
+            }
         }
     }
 }
@@ -684,4 +735,10 @@ private fun CleaningReminderCard(
             }
         }
     }
+}
+
+fun memberDisplayLabel(member: HouseholdMember?): String {
+    return member?.displayName?.takeIf { it.isNotBlank() }
+        ?: member?.email
+        ?: "Household member"
 }

@@ -20,6 +20,7 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 import java.time.LocalDate
+import java.util.UUID
 
 class CleaningReminderViewModel(
     private val dao: CleaningReminderDao,
@@ -32,14 +33,6 @@ class CleaningReminderViewModel(
                 viewModelScope,
                 SharingStarted.WhileSubscribed(5000),
                 emptyList()
-            )
-
-    val nextDueReminder: StateFlow<CleaningReminder?> =
-        dao.getNextDue()
-            .stateIn(
-                viewModelScope,
-                SharingStarted.WhileSubscribed(5000),
-                null
             )
 
     @RequiresApi(Build.VERSION_CODES.O)
@@ -248,99 +241,44 @@ class CleaningSyncRepository(
     private var listener: ListenerRegistration? = null
     @Volatile private var cachedHouseholdId: String? = null
 
-    init {
-        AppLogger.d(TAG, "init: attempting to start cleaning sync listener")
-        scope.launch {
-            try {
-                val hid = ensureHouseholdAndListener()
-                if (hid == null) {
-                    AppLogger.e(TAG, "init: householdId is null, cleaning listener not started (will retry on next operation)", null)
-                }
-            } catch (e: Exception) {
-                AppLogger.e(TAG, "init: FAILED ensureHouseholdAndListener message=${e.message}", e)
-            }
-        }
-    }
-
-    private suspend fun resolveHouseholdId(): String? {
-        val existing = cachedHouseholdId
-        if (existing != null) return existing
-
-        AppLogger.d(TAG, "resolveHouseholdId: cache miss, calling HouseholdRepository.getOrCreateHouseholdId()")
+    private suspend fun ensureHousehold(): String? {
+        cachedHouseholdId?.let { return it }
         return try {
-            val hid = householdRepo.getOrCreateHouseholdId()
-            if (hid == null) {
-                AppLogger.e(TAG, "resolveHouseholdId: returned null householdId", null)
-                null
-            } else {
-                cachedHouseholdId = hid
-                AppLogger.d(TAG, "resolveHouseholdId: resolved householdId=$hid")
-                hid
+            householdRepo.getOrCreateHouseholdId()?.also {
+                cachedHouseholdId = it
+                startListening(it)
             }
         } catch (e: Exception) {
-            AppLogger.e(TAG, "resolveHouseholdId: FAILED message=${e.message}", e)
+            AppLogger.e(TAG, "ensureHousehold FAILED", e)
             null
         }
     }
 
-    private suspend fun ensureHouseholdAndListener(): String? {
-        val hid = resolveHouseholdId() ?: return null
-        if (listener != null) return hid
-
-        AppLogger.d(TAG, "ensureHouseholdAndListener: attaching listener for householdId=$hid (cleaning)")
-        startListening(hid)
-        return hid
-    }
-
     private fun startListening(householdId: String) {
-        AppLogger.d(TAG, "startListening: attaching snapshot listener for householdId=$householdId (cleaning)")
         listener?.remove()
         listener = householdsCol.document(householdId)
             .collection("cleaning_reminders")
             .addSnapshotListener { snapshot, error ->
-                if (error != null) {
-                    AppLogger.e(
-                        TAG,
-                        "startListening: snapshot error for cleaning householdId=$householdId message=${error.message}",
-                        error
-                    )
-                    return@addSnapshotListener
-                }
-                if (snapshot == null) {
-                    AppLogger.e(TAG, "startListening: snapshot is null for cleaning householdId=$householdId", null)
-                    return@addSnapshotListener
-                }
-
-                AppLogger.d(TAG, "startListening: received cleaning snapshot with ${snapshot.size()} docs for householdId=$householdId")
+                if (error != null || snapshot == null) return@addSnapshotListener
 
                 val reminders = snapshot.documents.mapNotNull { doc ->
-                    val name = doc.getString("name") ?: run {
-                        AppLogger.e(TAG, "startListening: skipping cleaning doc ${doc.id} missing 'name' field", null)
-                        return@mapNotNull null
-                    }
-
-                    val intervalDays = (doc.getLong("intervalDays") ?: 0L).toInt()
-                    val nextDueEpochDay = (doc.getLong("nextDueEpochDay") ?: 0L).toInt()
-                    val assignedToUid = doc.getString("assignedToUid")
-                    val assignedToName = doc.getString("assignedToName")
-
+                    val name = doc.getString("name") ?: return@mapNotNull null
                     CleaningReminder(
                         id = doc.id,
                         name = name,
-                        intervalDays = intervalDays,
-                        nextDueEpochDay = nextDueEpochDay,
-                        assignedToUid = assignedToUid,
-                        assignedToName = assignedToName
+                        intervalDays = (doc.getLong("intervalDays") ?: 0).toInt(),
+                        nextDueEpochDay = (doc.getLong("nextDueEpochDay") ?: 0).toInt(),
+                        assignedToUid = doc.getString("assignedToUid"),
+                        assignedToName = doc.getString("assignedToName")
                     )
                 }
 
+                // 🔑 FIX: UPSERT ONLY
                 scope.launch {
                     try {
-                        AppLogger.d(TAG, "startListening: replacing local cleaning reminders with ${reminders.size} items")
-                        dao.deleteAll()
-                        if (reminders.isNotEmpty()) dao.insertAll(reminders)
+                        dao.insertAll(reminders)
                     } catch (e: Exception) {
-                        AppLogger.e(TAG, "startListening: FAILED to sync cleaning snapshot to Room message=${e.message}", e)
+                        AppLogger.e(TAG, "listener upsert FAILED", e)
                     }
                 }
             }
@@ -353,84 +291,52 @@ class CleaningSyncRepository(
         assignedToUid: String?,
         assignedToName: String?
     ) {
-        val trimmedName = name.trim()
-        if (trimmedName.isBlank() || intervalDays <= 0) {
-            AppLogger.d(TAG, "addReminder: validation failed inside syncRepo, aborting")
-            return
-        }
-
-        AppLogger.d(
-            TAG,
-            "addReminder: preparing to add cleaning reminder \"$trimmedName\" intervalDays=$intervalDays nextDue=$nextDueEpochDay assignedToUid=$assignedToUid assignedToName=$assignedToName"
+        val id = UUID.randomUUID().toString()
+        val reminder = CleaningReminder(
+            id = id,
+            name = name,
+            intervalDays = intervalDays,
+            nextDueEpochDay = nextDueEpochDay,
+            assignedToUid = assignedToUid,
+            assignedToName = assignedToName
         )
 
+        // LOCAL FIRST
+        dao.insertAll(listOf(reminder))
+
+        val hid = ensureHousehold() ?: return
         try {
-            val hid = ensureHouseholdAndListener()
-            if (hid == null) {
-                AppLogger.e(TAG, "addReminder: householdId is null, aborting", null)
-                return
-            }
-
-            val col = householdsCol.document(hid).collection("cleaning_reminders")
-            val docRef = col.document()
-            val data = mapOf(
-                "name" to trimmedName,
-                "intervalDays" to intervalDays,
-                "nextDueEpochDay" to nextDueEpochDay,
-                "assignedToUid" to assignedToUid,
-                "assignedToName" to assignedToName
-            )
-
-            AppLogger.d(TAG, "addReminder: setting Firestore cleaning doc id=${docRef.id}")
-            docRef.set(data).await()
-            AppLogger.d(TAG, "addReminder: Firestore write success for cleaning id=${docRef.id}")
+            householdsCol.document(hid)
+                .collection("cleaning_reminders")
+                .document(id)
+                .set(
+                    mapOf(
+                        "name" to name,
+                        "intervalDays" to intervalDays,
+                        "nextDueEpochDay" to nextDueEpochDay,
+                        "assignedToUid" to assignedToUid,
+                        "assignedToName" to assignedToName
+                    )
+                )
+                .await()
         } catch (e: Exception) {
-            AppLogger.e(TAG, "addReminder: FAILED Firestore write for \"$trimmedName\" message=${e.message}", e)
-            throw e
+            AppLogger.e(TAG, "addReminder Firestore FAILED", e)
         }
     }
 
     suspend fun resetCycle(item: CleaningReminder, newNextDueEpochDay: Int) {
-        AppLogger.d(TAG, "resetCycle: preparing to update cleaning id=${item.id} newNextDue=$newNextDueEpochDay")
+        // LOCAL FIRST
+        dao.update(item.copy(nextDueEpochDay = newNextDueEpochDay))
 
+        val hid = ensureHousehold() ?: return
         try {
-            val hid = ensureHouseholdAndListener()
-            if (hid == null) {
-                AppLogger.e(TAG, "resetCycle: householdId is null, aborting", null)
-                return
-            }
-
-            val docRef = householdsCol.document(hid)
+            householdsCol.document(hid)
                 .collection("cleaning_reminders")
                 .document(item.id)
-
-            docRef.update("nextDueEpochDay", newNextDueEpochDay).await()
-            AppLogger.d(TAG, "resetCycle: Firestore update success for cleaning id=${item.id}")
+                .update("nextDueEpochDay", newNextDueEpochDay)
+                .await()
         } catch (e: Exception) {
-            AppLogger.e(TAG, "resetCycle: FAILED Firestore update for cleaning id=${item.id} message=${e.message}", e)
-            throw e
-        }
-    }
-
-    suspend fun deleteReminder(item: CleaningReminder) {
-        AppLogger.d(TAG, "deleteReminder: preparing to delete cleaning id=${item.id} from Firestore")
-
-        try {
-            val hid = ensureHouseholdAndListener()
-            if (hid == null) {
-                AppLogger.e(TAG, "deleteReminder: householdId is null, aborting", null)
-                return
-            }
-
-            val docRef = householdsCol.document(hid)
-                .collection("cleaning_reminders")
-                .document(item.id)
-
-            docRef.delete().await()
-            AppLogger.d(TAG, "deleteReminder: Firestore delete success for cleaning id=${item.id}")
-        } catch (e: Exception) {
-            AppLogger.e(TAG, "deleteReminder: FAILED Firestore delete for cleaning id=${item.id} message=${e.message}", e)
-            throw e
+            AppLogger.e(TAG, "resetCycle Firestore FAILED", e)
         }
     }
 
@@ -439,62 +345,51 @@ class CleaningSyncRepository(
         assignedToUid: String?,
         assignedToName: String?
     ) {
-        AppLogger.d(
-            TAG,
-            "updateAssignee: preparing to update reminderId=$reminderId assignedToUid=$assignedToUid assignedToName=$assignedToName"
-        )
-
+        val hid = ensureHousehold() ?: return
         try {
-            val hid = ensureHouseholdAndListener()
-            if (hid == null) {
-                AppLogger.e(TAG, "updateAssignee: householdId is null, aborting", null)
-                return
-            }
-
-            val docRef = householdsCol.document(hid)
+            householdsCol.document(hid)
                 .collection("cleaning_reminders")
                 .document(reminderId)
-
-            docRef.update(
-                mapOf(
-                    "assignedToUid" to assignedToUid,
-                    "assignedToName" to assignedToName
+                .update(
+                    mapOf(
+                        "assignedToUid" to assignedToUid,
+                        "assignedToName" to assignedToName
+                    )
                 )
-            ).await()
-
-            AppLogger.d(TAG, "updateAssignee: Firestore update success for reminderId=$reminderId")
+                .await()
         } catch (e: Exception) {
-            AppLogger.e(TAG, "updateAssignee: FAILED reminderId=$reminderId message=${e.message}", e)
-            throw e
+            AppLogger.e(TAG, "updateAssignee Firestore FAILED", e)
+        }
+    }
+
+    suspend fun deleteReminder(item: CleaningReminder) {
+        // LOCAL FIRST
+        dao.delete(item)
+
+        val hid = ensureHousehold() ?: return
+        try {
+            householdsCol.document(hid)
+                .collection("cleaning_reminders")
+                .document(item.id)
+                .delete()
+                .await()
+        } catch (e: Exception) {
+            AppLogger.e(TAG, "deleteReminder Firestore FAILED", e)
         }
     }
 
     fun clear() {
-        AppLogger.d(TAG, "clear: removing cleaning snapshot listener and resetting household cache")
         listener?.remove()
         listener = null
         cachedHouseholdId = null
     }
 
     fun setHouseholdId(newHouseholdId: String?) {
-        val normalized = newHouseholdId?.trim()?.takeIf { it.isNotBlank() }
-
-        // No change, do nothing
-        if (normalized == cachedHouseholdId) return
-
-        AppLogger.d(TAG, "setHouseholdId: switching cleaning sync from $cachedHouseholdId -> $normalized")
-
-        // Kill the old listener
+        if (newHouseholdId == cachedHouseholdId) return
         listener?.remove()
         listener = null
-
-        // Update cache
-        cachedHouseholdId = normalized
-
-        // Attach new listener if we have an id
-        if (normalized != null) {
-            startListening(normalized)
-        }
+        cachedHouseholdId = newHouseholdId
+        if (newHouseholdId != null) startListening(newHouseholdId)
     }
-
 }
+

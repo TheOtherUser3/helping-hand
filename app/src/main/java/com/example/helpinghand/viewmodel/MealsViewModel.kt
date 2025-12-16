@@ -15,6 +15,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import java.util.UUID
 
 class MealsViewModel(
     private val dao: ShoppingItemDao
@@ -31,47 +32,23 @@ class MealsViewModel(
 
     fun fetchMealsFromCheckedItems() {
         viewModelScope.launch(Dispatchers.IO) {
-            AppLogger.d(AppLogger.TAG_ASYNC, "fetchMealsFromCheckedItems: coroutine started")
-
             try {
                 _isLoading.value = true
 
-                // DB LOGGING: read from Room
-                AppLogger.d(AppLogger.TAG_DB, "fetchMealsFromCheckedItems: loading items from DB")
                 val checkedItems = dao.getAllItemsNow()
                     .filter { it.isChecked }
                     .map { it.text.trim().lowercase() }
 
-                AppLogger.d(
-                    AppLogger.TAG_DB,
-                    "fetchMealsFromCheckedItems: ${checkedItems.size} checked items = $checkedItems"
-                )
-
                 if (checkedItems.isEmpty()) {
-                    AppLogger.d(
-                        AppLogger.TAG_VM,
-                        "fetchMealsFromCheckedItems: no checked items, clearing meals"
-                    )
                     _meals.value = emptyList()
                     return@launch
                 }
 
                 val ingredients = checkedItems.joinToString(",")
 
-                // API LOGGING: before call
-                AppLogger.d(
-                    AppLogger.TAG_API,
-                    "fetchMealsFromCheckedItems: calling Spoonacular with ingredients=\"$ingredients\""
-                )
-
                 val result = api.getMealsByIngredients(
                     ingredients = ingredients,
                     apiKey = apiKey
-                )
-
-                AppLogger.d(
-                    AppLogger.TAG_API,
-                    "fetchMealsFromCheckedItems: API success, ${result.size} meals returned"
                 )
 
                 val mapped = result.map { meal ->
@@ -79,102 +56,70 @@ class MealsViewModel(
                         id = meal.id,
                         title = meal.title,
                         imageUrl = meal.imageUrl,
-                        usedIngredients = meal.usedIngredients
-                            .map { it.name }
-                            .map { Ingredient(it) },
-                        missedIngredients = meal.missedIngredients
-                            .map { it.name }
-                            .map { Ingredient(it) }
+                        usedIngredients = meal.usedIngredients.map { Ingredient(it.name) },
+                        missedIngredients = meal.missedIngredients.map { Ingredient(it.name) }
                     )
                 }
 
-                AppLogger.d(
-                    AppLogger.TAG_VM,
-                    "fetchMealsFromCheckedItems: updating _meals with ${mapped.size} mapped meals"
-                )
                 _meals.value = mapped
-
             } catch (e: Exception) {
-                // CRASH LOGGING: detailed error
-                AppLogger.e(
-                    AppLogger.TAG_API,
-                    "fetchMealsFromCheckedItems: FAILED, message=${e.message}",
-                    e
-                )
+                AppLogger.e(AppLogger.TAG_API, "fetchMealsFromCheckedItems FAILED: ${e.message}", e)
                 _meals.value = emptyList()
             } finally {
                 _isLoading.value = false
-                AppLogger.d(AppLogger.TAG_ASYNC, "fetchMealsFromCheckedItems: coroutine finished")
             }
         }
     }
 
     fun addMissingIngredients(meal: Meal) {
         viewModelScope.launch(Dispatchers.IO) {
-            AppLogger.d(
-                AppLogger.TAG_ASYNC,
-                "addMissingIngredients: started for mealId=${meal.id}"
-            )
-
             try {
-                AppLogger.d(AppLogger.TAG_DB, "addMissingIngredients: reading existing items from DB")
-                val existingItems = dao.getAllItemsNow()
-                    .map { it.text.trim().lowercase() }
-                    .toSet()
+                val existing = dao.getAllItemsNow()
+                val existingByKey = existing.associateBy { it.text.trim().lowercase() }
 
-                val newItems = meal.missedIngredients
+                val targets = meal.missedIngredients
                     .map { it.name.trim() }
                     .filter { it.isNotEmpty() }
-                    .filter { it.lowercase() !in existingItems }
-                    .map { name ->
-                        ShoppingItem(
+                    .distinctBy { it.lowercase() }
+
+                val toInsert = mutableListOf<ShoppingItem>()
+                val toUpdate = mutableListOf<ShoppingItem>()
+
+                for (name in targets) {
+                    val key = name.lowercase()
+                    val found = existingByKey[key]
+
+                    if (found == null) {
+                        toInsert += ShoppingItem(
+                            id = UUID.randomUUID().toString(),
                             text = name,
                             isChecked = false
                         )
+                    } else if (found.isChecked) {
+                        // Make sure it's actually "missing" for the user
+                        toUpdate += found.copy(isChecked = false)
                     }
-
-                AppLogger.d(
-                    AppLogger.TAG_DB,
-                    "addMissingIngredients: ${newItems.size} new items to insert: $newItems"
-                )
-
-                if (newItems.isNotEmpty()) {
-                    dao.insertItems(newItems)
-                    AppLogger.d(AppLogger.TAG_DB, "addMissingIngredients: inserted items into DB")
                 }
 
-                _meals.update { currentList ->
-                    val updated = currentList.map {
+                if (toInsert.isNotEmpty()) dao.insertAll(toInsert)
+                for (item in toUpdate) dao.update(item)
+
+                _meals.update { current ->
+                    current.map {
                         if (it.id == meal.id) {
                             it.copy(
                                 usedIngredients = it.usedIngredients + it.missedIngredients,
                                 missedIngredients = emptyList()
                             )
-                        } else {
-                            it
-                        }
+                        } else it
                     }
-
-                    AppLogger.d(
-                        AppLogger.TAG_VM,
-                        "addMissingIngredients: updated _meals for mealId=${meal.id}"
-                    )
-                    updated
                 }
             } catch (e: Exception) {
-                AppLogger.e(
-                    AppLogger.TAG_DB,
-                    "addMissingIngredients: FAILED for mealId=${meal.id}, message=${e.message}",
-                    e
-                )
-            } finally {
-                AppLogger.d(
-                    AppLogger.TAG_ASYNC,
-                    "addMissingIngredients: coroutine finished for mealId=${meal.id}"
-                )
+                AppLogger.e(AppLogger.TAG_DB, "addMissingIngredients FAILED: ${e.message}", e)
             }
         }
     }
+
 }
 
 class MealsViewModelFactory(

@@ -18,17 +18,16 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountCircle
-import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.ContentCopy
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.ExitToApp
 import androidx.compose.material.icons.filled.Group
+import androidx.compose.material.icons.filled.Help
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Divider
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -75,20 +74,29 @@ fun SettingsScreen(
     currentUserName: String,
     currentUserEmail: String,
 
-    // NEW
     householdId: String?,
     onJoinHousehold: (String) -> Unit,
     onLeaveHousehold: () -> Unit,
 
     householdMembers: List<HouseholdMember>,
     onAddHouseholdMember: (String) -> Unit,
-    onLogout: () -> Unit
+
+    onLogout: () -> Unit,
+
+    onUpdateDisplayName: (String) -> Unit
 ) {
     val clipboard: ClipboardManager = LocalClipboardManager.current
 
     var showProfileDialog by remember { mutableStateOf(false) }
     var showHouseholdDialog by remember { mutableStateOf(false) }
     var showAddMemberDialog by remember { mutableStateOf(false) }
+    var showHelpDialog by remember { mutableStateOf(false) }
+
+    var showHouseholdCodeDialog by remember { mutableStateOf(false) }
+    var showJoinHouseholdDialog by remember { mutableStateOf(false) }
+    var showLeaveHouseholdDialog by remember { mutableStateOf(false) }
+
+    val safeDisplayName = currentUserName.trim().ifBlank { currentUserEmail.trim() }
 
     // NEW dialogs
     var showHouseholdCodeDialog by remember { mutableStateOf(false) }
@@ -120,16 +128,26 @@ fun SettingsScreen(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
-                        Box(
+                        IconButton(
+                            onClick = { showHelpDialog = true },
                             modifier = Modifier
                                 .size(36.dp)
                                 .clip(CircleShape)
-                                .background(C.Primary),
-                            contentAlignment = Alignment.Center
+                                .background(C.Primary)
+                                .testTag("settings_help")
                         ) {
-                            Icon(Icons.Filled.Person, null, tint = C.Surface)
+                            Icon(
+                                imageVector = Icons.Filled.Help,
+                                contentDescription = "Help",
+                                tint = C.Surface
+                            )
                         }
-                        Text("Settings", fontSize = 20.sp, color = C.OnBackground)
+                        Text(
+                            text = "Settings",
+                            fontSize = 20.sp,
+                            color = C.OnBackground,
+                            modifier = Modifier.testTag("settings_title")
+                        )
                     }
                 },
                 actions = {
@@ -164,7 +182,7 @@ fun SettingsScreen(
 
                     item {
                         SettingsRow(
-                            title = currentUserName,
+                            title = safeDisplayName,
                             subtitle = currentUserEmail,
                             icon = Icons.Filled.AccountCircle,
                             onClick = { showProfileDialog = true }
@@ -192,7 +210,6 @@ fun SettingsScreen(
                         Divider(color = C.OnSurfaceVariant.copy(alpha = 0.15f))
                     }
 
-                    // NEW: Household code
                     item {
                         SettingsRow(
                             title = "Household Code",
@@ -203,7 +220,6 @@ fun SettingsScreen(
                         Divider(color = C.OnSurfaceVariant.copy(alpha = 0.15f))
                     }
 
-                    // NEW: Join household by code
                     item {
                         SettingsRow(
                             title = "Join Household",
@@ -214,7 +230,6 @@ fun SettingsScreen(
                         Divider(color = C.OnSurfaceVariant.copy(alpha = 0.15f))
                     }
 
-                    // NEW: Leave household
                     item {
                         SettingsRow(
                             title = "Leave Household",
@@ -241,7 +256,8 @@ fun SettingsScreen(
                                 title = "Dynamic Theme",
                                 subtitle = "Auto light / dark based on ambient light",
                                 isChecked = isDynamicTheme,
-                                onCheckedChange = onDynamicThemeChange
+                                onCheckedChange = onDynamicThemeChange,
+                                switchModifier = Modifier.testTag("switch_dynamic_theme")
                             )
                             Divider(color = C.OnSurfaceVariant.copy(alpha = 0.15f))
                         }
@@ -253,7 +269,8 @@ fun SettingsScreen(
                             subtitle = if (isDynamicTheme) "Disabled while Dynamic Theme is on" else null,
                             isChecked = isDarkMode,
                             onCheckedChange = { if (!isDynamicTheme) onDarkModeChange(it) },
-                            enabled = !isDynamicTheme
+                            enabled = !isDynamicTheme,
+                            switchModifier = Modifier.testTag("switch_dark_mode")
                         )
                         Divider(color = C.OnSurfaceVariant.copy(alpha = 0.15f))
                     }
@@ -282,9 +299,13 @@ fun SettingsScreen(
 
         if (showProfileDialog) {
             ProfileDialog(
-                name = currentUserName,
+                name = safeDisplayName,
                 email = currentUserEmail,
-                onDismiss = { showProfileDialog = false }
+                onDismiss = { showProfileDialog = false },
+                onUpdateName = { newName ->
+                    onUpdateDisplayName(newName)
+                    showProfileDialog = false
+                }
             )
         }
 
@@ -296,7 +317,16 @@ fun SettingsScreen(
             )
         }
 
-        // NEW: Household Code dialog
+        if (showAddMemberDialog) {
+            AddMemberDialog(
+                onDismiss = { showAddMemberDialog = false },
+                onAdd = { email ->
+                    onAddHouseholdMember(email)
+                    showAddMemberDialog = false
+                }
+            )
+        }
+
         if (showHouseholdCodeDialog) {
             AlertDialog(
                 onDismissRequest = { showHouseholdCodeDialog = false },
@@ -323,11 +353,10 @@ fun SettingsScreen(
                             IconButton(
                                 onClick = {
                                     val id = householdId
-                                    if (!id.isNullOrBlank()) {
-                                        clipboard.setText(AnnotatedString(id))
-                                    }
+                                    if (!id.isNullOrBlank()) clipboard.setText(AnnotatedString(id))
                                 },
-                                enabled = !householdId.isNullOrBlank()
+                                enabled = !householdId.isNullOrBlank(),
+                                modifier = Modifier.testTag("copy_household_code")
                             ) {
                                 Icon(
                                     imageVector = Icons.Filled.ContentCopy,
@@ -347,7 +376,6 @@ fun SettingsScreen(
             )
         }
 
-        // NEW: Join Household dialog
         if (showJoinHouseholdDialog) {
             var code by remember { mutableStateOf(TextFieldValue("")) }
 
@@ -365,7 +393,9 @@ fun SettingsScreen(
                             value = code,
                             onValueChange = { code = it },
                             label = { Text("Household Code") },
-                            modifier = Modifier.fillMaxWidth(),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .testTag("join_household_code_field"),
                             singleLine = true
                         )
                     }
@@ -376,7 +406,8 @@ fun SettingsScreen(
                             onJoinHousehold(code.text)
                             showJoinHouseholdDialog = false
                         },
-                        enabled = code.text.trim().isNotEmpty()
+                        enabled = code.text.trim().isNotEmpty(),
+                        modifier = Modifier.testTag("join_household_confirm")
                     ) {
                         Text("Join", color = C.Primary)
                     }
@@ -390,7 +421,6 @@ fun SettingsScreen(
             )
         }
 
-        // NEW: Leave Household confirm dialog
         if (showLeaveHouseholdDialog) {
             AlertDialog(
                 onDismissRequest = { showLeaveHouseholdDialog = false },
@@ -407,7 +437,8 @@ fun SettingsScreen(
                         onClick = {
                             onLeaveHousehold()
                             showLeaveHouseholdDialog = false
-                        }
+                        },
+                        modifier = Modifier.testTag("leave_household_confirm")
                     ) {
                         Text("Leave", color = C.Primary)
                     }
@@ -420,6 +451,10 @@ fun SettingsScreen(
                 containerColor = C.Surface
             )
         }
+    }
+
+    if (showHelpDialog) {
+        OnboardingDialog(onDismiss = { showHelpDialog = false })
     }
 }
 
@@ -477,7 +512,8 @@ private fun SettingsToggleRow(
     subtitle: String?,
     isChecked: Boolean,
     onCheckedChange: (Boolean) -> Unit,
-    enabled: Boolean = true
+    enabled: Boolean = true,
+    switchModifier: Modifier = Modifier
 ) {
     Row(
         modifier = Modifier
@@ -505,6 +541,7 @@ private fun SettingsToggleRow(
             checked = isChecked,
             onCheckedChange = onCheckedChange,
             enabled = enabled,
+            modifier = switchModifier,
             colors = SwitchDefaults.colors(
                 checkedThumbColor = Color.White,
                 checkedTrackColor = C.Primary,
@@ -519,8 +556,15 @@ private fun SettingsToggleRow(
 private fun ProfileDialog(
     name: String,
     email: String,
-    onDismiss: () -> Unit
+    onDismiss: () -> Unit,
+    onUpdateName: (String) -> Unit
 ) {
+    var editing by remember { mutableStateOf(false) }
+    var nameDraft by remember { mutableStateOf(TextFieldValue(name)) }
+
+    val trimmed = nameDraft.text.trim().take(60)
+    val canSave = trimmed.isNotBlank() && trimmed != name.trim()
+
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("Profile", color = C.OnBackground) },
@@ -544,24 +588,83 @@ private fun ProfileDialog(
                         modifier = Modifier.size(48.dp)
                     )
                 }
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text(
-                        text = name,
-                        fontSize = 20.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = C.OnBackground
-                    )
-                    Text(
-                        text = email,
-                        fontSize = 14.sp,
-                        color = C.OnSurfaceVariant
-                    )
+
+                if (!editing) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Text(
+                                text = name,
+                                fontSize = 20.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = C.OnBackground
+                            )
+                            IconButton(
+                                onClick = {
+                                    nameDraft = TextFieldValue(name)
+                                    editing = true
+                                },
+                                modifier = Modifier.testTag("profile_edit_name")
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Filled.Edit,
+                                    contentDescription = "Edit name",
+                                    tint = C.Primary
+                                )
+                            }
+                        }
+                        Text(
+                            text = email,
+                            fontSize = 14.sp,
+                            color = C.OnSurfaceVariant
+                        )
+                    }
+                } else {
+                    Column(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        OutlinedTextField(
+                            value = nameDraft,
+                            onValueChange = { nameDraft = it },
+                            label = { Text("Display name") },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .testTag("profile_name_field"),
+                            singleLine = true
+                        )
+                        Text(
+                            text = "Shown to your household members.",
+                            fontSize = 12.sp,
+                            color = C.OnSurfaceVariant
+                        )
+                    }
                 }
             }
         },
         confirmButton = {
-            TextButton(onClick = onDismiss) {
-                Text("Close", color = C.Primary)
+            if (!editing) {
+                TextButton(onClick = onDismiss) {
+                    Text("Close", color = C.Primary)
+                }
+            } else {
+                TextButton(
+                    onClick = { onUpdateName(trimmed) },
+                    enabled = canSave,
+                    modifier = Modifier.testTag("profile_save_name")
+                ) {
+                    Text("Save", color = if (canSave) C.Primary else C.OnSurfaceVariant)
+                }
+            }
+        },
+        dismissButton = {
+            if (editing) {
+                TextButton(onClick = { editing = false }) {
+                    Text("Cancel", color = C.OnSurfaceVariant)
+                }
             }
         },
         containerColor = C.Surface
@@ -618,8 +721,6 @@ private fun HouseholdDialog(
                     }
                     Divider(color = C.OnSurfaceVariant.copy(alpha = 0.15f))
                 }
-
-                // Button removed - members can only be added via household code now
             }
         },
         confirmButton = {

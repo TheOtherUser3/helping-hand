@@ -17,6 +17,11 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
+import java.util.UUID
+
+/* =========================
+           ViewModel
+   ========================= */
 
 class ContactsViewModel(
     private val dao: ContactDao,
@@ -33,86 +38,26 @@ class ContactsViewModel(
 
     fun addContact(name: String, phone: String, email: String) {
         val sanitized = sanitizeInputs(name, phone, email)
-
-        AppLogger.d(
-            AppLogger.TAG_VM,
-            "addContact called: name=\"${sanitized.name}\", phone=\"${sanitized.phone}\", email=\"${sanitized.email}\""
-        )
-
-        if (!sanitized.isValid) {
-            AppLogger.d(AppLogger.TAG_VM, "addContact: validation failed, aborting")
-            return
-        }
+        if (!sanitized.isValid) return
 
         viewModelScope.launch {
-            AppLogger.d(
-                AppLogger.TAG_ASYNC,
-                "addContact: coroutine started for name=\"${sanitized.name}\" (via ContactsSyncRepository)"
+            syncRepo.addContact(
+                name = sanitized.name,
+                phone = sanitized.phone,
+                email = sanitized.email
             )
-            try {
-                syncRepo.addContact(
-                    name = sanitized.name,
-                    phone = sanitized.phone,
-                    email = sanitized.email
-                )
-                AppLogger.d(
-                    AppLogger.TAG_DB,
-                    "addContact: delegated to ContactsSyncRepository for \"${sanitized.name}\""
-                )
-            } catch (e: Exception) {
-                AppLogger.e(
-                    AppLogger.TAG_DB,
-                    "addContact: FAILED in syncRepo for name=\"${sanitized.name}\" message=${e.message}",
-                    e
-                )
-            } finally {
-                AppLogger.d(
-                    AppLogger.TAG_ASYNC,
-                    "addContact: coroutine finished for name=\"${sanitized.name}\""
-                )
-            }
         }
     }
 
     fun deleteContact(contact: Contact) {
         viewModelScope.launch {
-            AppLogger.d(
-                AppLogger.TAG_ASYNC,
-                "deleteContact: coroutine started for id=${contact.id} (via ContactsSyncRepository)"
-            )
-            try {
-                syncRepo.deleteContact(contact)
-                AppLogger.d(
-                    AppLogger.TAG_DB,
-                    "deleteContact: delegated to ContactsSyncRepository for id=${contact.id}"
-                )
-            } catch (e: Exception) {
-                AppLogger.e(
-                    AppLogger.TAG_DB,
-                    "deleteContact: FAILED in syncRepo for id=${contact.id} message=${e.message}",
-                    e
-                )
-            } finally {
-                AppLogger.d(
-                    AppLogger.TAG_ASYNC,
-                    "deleteContact: coroutine finished for id=${contact.id}"
-                )
-            }
+            syncRepo.deleteContact(contact)
         }
     }
 
     override fun onCleared() {
         super.onCleared()
-        try {
-            AppLogger.d(AppLogger.TAG_VM, "ContactsViewModel.onCleared: clearing sync listener")
-            syncRepo.clear()
-        } catch (e: Exception) {
-            AppLogger.e(
-                AppLogger.TAG_VM,
-                "ContactsViewModel.onCleared: FAILED to clear sync listener message=${e.message}",
-                e
-            )
-        }
+        syncRepo.clear()
     }
 
     private data class SanitizedContact(
@@ -120,46 +65,26 @@ class ContactsViewModel(
         val phone: String,
         val email: String
     ) {
-        val isValid: Boolean =
-            name.isNotBlank() && (phone.isNotBlank() || email.isNotBlank())
+        val isValid = name.isNotBlank() && (phone.isNotBlank() || email.isNotBlank())
     }
 
     private fun sanitizeInputs(name: String, phone: String, email: String): SanitizedContact {
-        val safeName = name.trim().take(MAX_NAME_CHARS)
-        val safeEmail = email.trim().take(MAX_EMAIL_CHARS)
-        val safePhone = normalizeUsPhone(phone)
         return SanitizedContact(
-            name = safeName,
-            phone = safePhone,
-            email = safeEmail
+            name.trim().take(60),
+            normalizeUsPhone(phone),
+            email.trim().take(120)
         )
     }
 
-    /**
-     * Accepts:
-     * - 6666666666
-     * - 666-666-6666
-     * - spaces too
-     * Stores: digits-only, coerced to 10 digits (US-style).
-     */
     private fun normalizeUsPhone(input: String): String {
         val digits = input.filter { it.isDigit() }
         if (digits.isBlank()) return ""
-
         val normalized = if (digits.length == 11 && digits.startsWith("1")) digits.drop(1) else digits
-        return normalized.take(MAX_PHONE_DIGITS)
+        return normalized.take(10)
     }
 
     fun onHouseholdIdChanged(newHouseholdId: String?) {
-        AppLogger.d(AppLogger.TAG_VM, "ContactsViewModel: onHouseholdIdChanged -> $newHouseholdId")
         syncRepo.setHouseholdId(newHouseholdId)
-    }
-
-
-    companion object {
-        private const val MAX_NAME_CHARS = 60
-        private const val MAX_EMAIL_CHARS = 120
-        private const val MAX_PHONE_DIGITS = 10
     }
 }
 
@@ -170,9 +95,144 @@ class ContactsViewModelFactory(
         if (modelClass.isAssignableFrom(ContactsViewModel::class.java)) {
             val syncRepo = ContactsSyncRepository(dao)
             @Suppress("UNCHECKED_CAST")
-            return ContactsViewModel(dao, syncRepo) as T
+            return ContactsViewModel(dao, ContactsSyncRepository(dao)) as T
         }
-        throw IllegalArgumentException("Unknown ViewModel class: ${modelClass.name}")
+        throw IllegalArgumentException("Unknown ViewModel class")
+    }
+}
+
+/* =========================
+   Sync Repository
+   ========================= */
+
+class ContactsSyncRepository(
+    private val dao: ContactDao,
+    private val householdRepo: HouseholdRepository = HouseholdRepository(),
+    private val db: FirebaseFirestore = FirebaseFirestore.getInstance()
+) {
+    companion object {
+        private const val TAG = "ContactsSyncRepository"
+    }
+
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    private val householdsCol = db.collection("households")
+
+    private var listener: ListenerRegistration? = null
+    @Volatile private var cachedHouseholdId: String? = null
+
+    /* ---------- Household resolution ---------- */
+
+    private suspend fun ensureHousehold(): String? {
+        cachedHouseholdId?.let { return it }
+        return try {
+            householdRepo.getOrCreateHouseholdId()?.also {
+                cachedHouseholdId = it
+                startListening(it)
+            }
+        } catch (e: Exception) {
+            AppLogger.e(TAG, "ensureHousehold FAILED", e)
+            null
+        }
+    }
+
+    /* ---------- SNAPSHOT LISTENER ---------- */
+
+    private fun startListening(householdId: String) {
+        listener?.remove()
+        listener = householdsCol.document(householdId)
+            .collection("contacts")
+            .addSnapshotListener { snapshot, error ->
+                if (error != null || snapshot == null) return@addSnapshotListener
+
+                val contacts = snapshot.documents.mapNotNull { doc ->
+                    val name = doc.getString("name") ?: return@mapNotNull null
+                    Contact(
+                        id = doc.id,
+                        name = name,
+                        phone = doc.getString("phone") ?: "",
+                        email = doc.getString("email") ?: ""
+                    )
+                }
+
+                val fromCache = snapshot.metadata.isFromCache
+
+                scope.launch {
+                    try {
+                        if (fromCache) {
+                            dao.insertAll(contacts)
+                        } else {
+                            dao.deleteAll()
+                            if (contacts.isNotEmpty()) dao.insertAll(contacts)
+                        }
+                    } catch (e: Exception) {
+                        AppLogger.e(
+                            TAG,
+                            "startListening FAILED (fromCache=$fromCache)",
+                            e
+                        )
+                    }
+                }
+            }
+    }
+
+    /* ---------- MUTATIONS ---------- */
+
+    suspend fun addContact(name: String, phone: String, email: String) {
+        val id = UUID.randomUUID().toString()
+        val contact = Contact(id, name, phone, email)
+
+        // Local first
+        dao.insertAll(listOf(contact))
+
+        // Best-effort Firestore
+        val hid = ensureHousehold() ?: return
+        try {
+            householdsCol.document(hid)
+                .collection("contacts")
+                .document(id)
+                .set(
+                    mapOf(
+                        "name" to name,
+                        "phone" to phone,
+                        "email" to email
+                    )
+                )
+                .await()
+        } catch (e: Exception) {
+            AppLogger.e(TAG, "addContact Firestore FAILED", e)
+        }
+    }
+
+    suspend fun deleteContact(contact: Contact) {
+        // Local first
+        dao.delete(contact)
+
+        val hid = ensureHousehold() ?: return
+        try {
+            householdsCol.document(hid)
+                .collection("contacts")
+                .document(contact.id)
+                .delete()
+                .await()
+        } catch (e: Exception) {
+            AppLogger.e(TAG, "deleteContact Firestore FAILED", e)
+        }
+    }
+
+    /* ---------- Lifecycle ---------- */
+
+    fun clear() {
+        listener?.remove()
+        listener = null
+        cachedHouseholdId = null
+    }
+
+    fun setHouseholdId(newHouseholdId: String?) {
+        if (newHouseholdId == cachedHouseholdId) return
+        listener?.remove()
+        listener = null
+        cachedHouseholdId = newHouseholdId
+        if (newHouseholdId != null) startListening(newHouseholdId)
     }
 }
 

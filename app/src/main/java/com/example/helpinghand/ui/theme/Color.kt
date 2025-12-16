@@ -140,10 +140,4 @@ object ShoppingColors {
 
 object AppColors {
     val Background      @Composable get() = LocalAppColors.current.Background
-    val Primary         @Composable get() = LocalAppColors.current.Primary
-    val OnBackground    @Composable get() = LocalAppColors.current.OnBackground
-    val OnSurfaceVariant@Composable get() = LocalAppColors.current.OnSurfaceVariant
-    val Surface         @Composable get() = LocalAppColors.current.Surface
-    val SurfaceVariant  @Composable get() = LocalAppColors.current.SurfaceVariant
-    val GestureBar      @Composable get() = LocalAppColors.current.GestureBar
 }
