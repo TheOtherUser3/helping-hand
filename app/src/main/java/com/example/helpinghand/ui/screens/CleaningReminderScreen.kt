@@ -525,6 +525,57 @@ private fun CleaningSectionHeader(
 }
 
 @Composable
+private fun CleaningSectionHeader(
+    title: String,
+    icon: androidx.compose.ui.graphics.vector.ImageVector
+) {
+    // Nicer header: pill surface with icon + label
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(C.SurfaceVariant) // ensures sticky header masks items beneath
+            .padding(top = 6.dp, bottom = 6.dp)
+    ) {
+        Surface(
+            modifier = Modifier
+                .fillMaxWidth()
+                .shadow(2.dp, RoundedCornerShape(999.dp), clip = false),
+            shape = RoundedCornerShape(999.dp),
+            color = C.Surface,
+            tonalElevation = 2.dp,
+            border = BorderStroke(1.dp, C.Primary.copy(alpha = 0.25f))
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 14.dp, vertical = 10.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                Surface(
+                    shape = CircleShape,
+                    color = C.Primary.copy(alpha = 0.12f)
+                ) {
+                    Icon(
+                        imageVector = icon,
+                        contentDescription = null,
+                        tint = C.Primary,
+                        modifier = Modifier.padding(6.dp)
+                    )
+                }
+
+                Text(
+                    text = title,
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = C.OnSurfaceVariant
+                )
+            }
+        }
+    }
+}
+
+@Composable
 private fun CleaningReminderCard(
     item: CleaningReminder,
     daysUntil: Int,

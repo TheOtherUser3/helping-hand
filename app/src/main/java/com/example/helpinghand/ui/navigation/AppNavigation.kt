@@ -229,12 +229,13 @@ fun AppNavigation(
             )
         }
 
-        composable("contacts") {
-            ContactsScreen(
-                navController = navController,
-                viewModel = contactsViewModel
-            )
-        }
+                onLeaveHousehold = {
+                    scope.launch {
+                        val newId = householdRepository.leaveAndCreateSoloHousehold()
+                        AppLogger.d(AppLogger.TAG_VM, "Left household, new solo householdId=$newId")
+                        householdId = newId
+                    }
+                },
 
         composable("cleaning") {
             CleaningReminderScreen(

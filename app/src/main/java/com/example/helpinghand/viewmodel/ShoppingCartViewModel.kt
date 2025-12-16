@@ -120,7 +120,6 @@ class ShoppingSyncRepository(
                     ShoppingItem(id = doc.id, text = text, isChecked = checked)
                 }
 
-                // IMPORTANT: do not deleteAll here, it wipes local-only inserts (like meals-added items).
                 scope.launch {
                     try { dao.insertAll(items) }
                     catch (e: Exception) { AppLogger.e(TAG, "listener upsert FAILED: ${e.message}", e) }

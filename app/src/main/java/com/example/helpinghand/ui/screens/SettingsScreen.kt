@@ -98,6 +98,11 @@ fun SettingsScreen(
 
     val safeDisplayName = currentUserName.trim().ifBlank { currentUserEmail.trim() }
 
+    // NEW dialogs
+    var showHouseholdCodeDialog by remember { mutableStateOf(false) }
+    var showJoinHouseholdDialog by remember { mutableStateOf(false) }
+    var showLeaveHouseholdDialog by remember { mutableStateOf(false) }
+
     Scaffold(containerColor = C.Background) { inner ->
         Column(
             modifier = Modifier
@@ -670,7 +675,7 @@ private fun ProfileDialog(
 private fun HouseholdDialog(
     members: List<HouseholdMember>,
     onDismiss: () -> Unit,
-    onAddMember: () -> Unit
+    onAddMember: () -> Unit  // Keep parameter for compatibility but won't be used
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,

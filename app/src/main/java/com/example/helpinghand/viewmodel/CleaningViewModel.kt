@@ -301,7 +301,7 @@ class CleaningSyncRepository(
             assignedToName = assignedToName
         )
 
-        // ✅ LOCAL FIRST
+        // LOCAL FIRST
         dao.insertAll(listOf(reminder))
 
         val hid = ensureHousehold() ?: return
