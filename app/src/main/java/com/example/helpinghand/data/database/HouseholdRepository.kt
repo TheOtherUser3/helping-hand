@@ -28,27 +28,37 @@ class HouseholdRepository(
 
         val email = (user.email ?: "").trim()
         val emailLower = email.lowercase()
-        val displayName = (user.displayName ?: "").trim()
+
+        val rawDisplayName = (user.displayName ?: "").trim()
+        val displayNameOrNull = rawDisplayName.takeIf { it.isNotBlank() }
 
         if (!snapshot.exists()) {
             docRef.set(
                 mapOf(
                     "email" to email,
                     "emailLower" to emailLower,
-                    "displayName" to displayName,
+                    // Only set displayName if we actually have one
+                    "displayName" to (displayNameOrNull ?: ""),
                     "householdId" to null
                 )
             ).await()
         } else {
             val updates = mutableMapOf<String, Any>()
+
             if (snapshot.getString("email") != email) updates["email"] = email
             if (snapshot.getString("emailLower") != emailLower) updates["emailLower"] = emailLower
-            if (snapshot.getString("displayName") != displayName) updates["displayName"] = displayName
+
+            if (displayNameOrNull != null) {
+                val current = snapshot.getString("displayName") ?: ""
+                if (current != displayNameOrNull) updates["displayName"] = displayNameOrNull
+            }
+
             if (updates.isNotEmpty()) docRef.update(updates).await()
         }
 
         return user.uid
     }
+
 
     /**
      * Returns existing householdId for current user, or creates a new solo household.

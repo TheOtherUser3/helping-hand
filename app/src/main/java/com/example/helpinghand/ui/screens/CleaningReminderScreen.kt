@@ -72,7 +72,7 @@ fun CleaningReminderScreen(
         buildList {
             add(null to "Unassigned")
             householdMembers.forEach { member ->
-                val label = member.displayName.takeIf { it.isNotBlank() } ?: member.email
+                val label = memberDisplayLabel(member)
                 add(member.uid to label)
             }
         }
@@ -385,10 +385,7 @@ fun CleaningReminderScreen(
                                 expanded = assigneeExpanded,
                                 onExpandedChange = { assigneeExpanded = !assigneeExpanded }
                             ) {
-                                val selectedLabel =
-                                    selectedMember?.displayName?.takeIf { it.isNotBlank() }
-                                        ?: selectedMember?.email
-                                        ?: "Unassigned"
+                                val selectedLabel = selectedMember?.let { memberDisplayLabel(it) } ?: "Unassigned"
 
                                 TextField(
                                     value = selectedLabel,
@@ -417,9 +414,7 @@ fun CleaningReminderScreen(
                                     )
 
                                     householdMembers.forEach { member ->
-                                        val label =
-                                            member.displayName.takeIf { it.isNotBlank() }
-                                                ?: member.email
+                                        val label = memberDisplayLabel(member)
                                         DropdownMenuItem(
                                             text = { Text(label) },
                                             onClick = {
@@ -689,4 +684,10 @@ private fun CleaningReminderCard(
             }
         }
     }
+}
+
+fun memberDisplayLabel(member: HouseholdMember?): String {
+    return member?.displayName?.takeIf { it.isNotBlank() }
+        ?: member?.email
+        ?: "Household member"
 }

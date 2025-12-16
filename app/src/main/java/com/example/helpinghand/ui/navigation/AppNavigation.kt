@@ -7,15 +7,11 @@ import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.RequiresApi
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.setValue
+import androidx.compose.runtime.*
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -27,30 +23,8 @@ import com.example.helpinghand.HelpingHandApp
 import com.example.helpinghand.data.database.SettingsRepository
 import com.example.helpinghand.data.household.HouseholdRepository
 import com.example.helpinghand.data.model.HouseholdMember
-import com.example.helpinghand.ui.screens.CleaningReminderScreen
-import com.example.helpinghand.ui.screens.ContactsScreen
-import com.example.helpinghand.ui.screens.DashboardScreen
-import com.example.helpinghand.ui.screens.DoctorAppointmentsScreen
-import com.example.helpinghand.ui.screens.LoginScreen
-import com.example.helpinghand.ui.screens.MealsScreen
-import com.example.helpinghand.ui.screens.OnboardingScreen
-import com.example.helpinghand.ui.screens.RegistrationScreen
-import com.example.helpinghand.ui.screens.SettingsScreen
-import com.example.helpinghand.ui.screens.ShoppingCartScreen
-import com.example.helpinghand.viewmodel.AuthViewModel
-import com.example.helpinghand.viewmodel.AuthViewModelFactory
-import com.example.helpinghand.viewmodel.CleaningReminderViewModel
-import com.example.helpinghand.viewmodel.CleaningReminderViewModelFactory
-import com.example.helpinghand.viewmodel.ContactsViewModel
-import com.example.helpinghand.viewmodel.ContactsViewModelFactory
-import com.example.helpinghand.viewmodel.DashboardViewModel
-import com.example.helpinghand.viewmodel.DashboardViewModelFactory
-import com.example.helpinghand.viewmodel.DoctorAppointmentsViewModel
-import com.example.helpinghand.viewmodel.DoctorAppointmentsViewModelFactory
-import com.example.helpinghand.viewmodel.MealsViewModel
-import com.example.helpinghand.viewmodel.MealsViewModelFactory
-import com.example.helpinghand.viewmodel.ShoppingCartViewModel
-import com.example.helpinghand.viewmodel.ShoppingCartViewModelFactory
+import com.example.helpinghand.ui.screens.*
+import com.example.helpinghand.viewmodel.*
 import kotlinx.coroutines.launch
 
 @RequiresApi(Build.VERSION_CODES.O)
@@ -60,64 +34,92 @@ fun AppNavigation(
     hasLightSensor: Boolean
 ) {
     val navController = rememberNavController()
-
-    // Log each destination change for debugging
-    LaunchedEffect(navController) {
-        navController.addOnDestinationChangedListener { _, destination, arguments ->
-            AppLogger.d(
-                AppLogger.TAG_NAV,
-                "Nav destination changed: route=${destination.route}, args=$arguments"
-            )
-        }
-    }
-
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
 
+    // App + DB
     val app = context.applicationContext as HelpingHandApp
     val db = app.database
 
-    // Firebase auth viewmodel
+    // --------------------
+    // Auth
+    // --------------------
     val authViewModel: AuthViewModel = viewModel(factory = AuthViewModelFactory())
     val authUiState by authViewModel.uiState.collectAsState()
     val currentUser by authViewModel.currentUser.collectAsState()
 
-    // App feature viewmodels
-    val shoppingCartViewModel: ShoppingCartViewModel = viewModel(
-        factory = ShoppingCartViewModelFactory(db.shoppingItemDao())
-    )
-    val mealsViewModel: MealsViewModel = viewModel(
-        factory = MealsViewModelFactory(db.shoppingItemDao())
-    )
-    val cleaningReminderViewModel: CleaningReminderViewModel = viewModel(
-        factory = CleaningReminderViewModelFactory(db.cleaningReminderDao())
-    )
-    val dashboardViewModel: DashboardViewModel = viewModel(
-        factory = DashboardViewModelFactory(db.shoppingItemDao(), db.cleaningReminderDao())
-    )
-    val contactsViewModel: ContactsViewModel = viewModel(
-        factory = ContactsViewModelFactory(db.contactDao())
-    )
-    val doctorAppointmentsViewModel: DoctorAppointmentsViewModel = viewModel(
-        factory = DoctorAppointmentsViewModelFactory(db.doctorAppointmentDao())
-    )
+    // --------------------
+    // Settings (DataStore)
+    // --------------------
+    val darkMode by settingsRepository.darkModeEnabled.collectAsState(initial = false)
+    val dynamicThemeEnabled by settingsRepository.dynamicThemeEnabled.collectAsState(initial = false)
 
-    // Household integration with Firebase
+    // CRITICAL FIX: nullable onboarding state
+    val onboardingShown by settingsRepository.onboardingShown.collectAsState(initial = null)
+
+    // --------------------
+    // Feature ViewModels
+    // --------------------
+    val shoppingCartViewModel: ShoppingCartViewModel =
+        viewModel(factory = ShoppingCartViewModelFactory(db.shoppingItemDao()))
+
+    val mealsViewModel: MealsViewModel =
+        viewModel(factory = MealsViewModelFactory(db.shoppingItemDao()))
+
+    val cleaningReminderViewModel: CleaningReminderViewModel =
+        viewModel(factory = CleaningReminderViewModelFactory(db.cleaningReminderDao()))
+
+    val dashboardViewModel: DashboardViewModel =
+        viewModel(factory = DashboardViewModelFactory(
+            db.shoppingItemDao(),
+            db.cleaningReminderDao()
+        ))
+
+    val contactsViewModel: ContactsViewModel =
+        viewModel(factory = ContactsViewModelFactory(db.contactDao()))
+
+    val doctorAppointmentsViewModel: DoctorAppointmentsViewModel =
+        viewModel(factory = DoctorAppointmentsViewModelFactory(db.doctorAppointmentDao()))
+
+    // --------------------
+    // Household (Firebase)
+    // --------------------
     val householdRepository = remember { HouseholdRepository() }
     var householdId by remember { mutableStateOf<String?>(null) }
     var householdMembers by remember { mutableStateOf<List<HouseholdMember>>(emptyList()) }
 
-    // Settings (DataStore)
-    val darkMode by settingsRepository.darkModeEnabled.collectAsState(initial = false)
-    val dynamicThemeEnabled by settingsRepository.dynamicThemeEnabled.collectAsState(initial = false)
-    val onboardingShown by settingsRepository.onboardingShown.collectAsState(initial = false)
-    val scope = rememberCoroutineScope()
+    // Initialize household when auth changes
+    LaunchedEffect(currentUser) {
+        if (currentUser != null) {
+            try {
+                householdRepository.ensureUserDocument()
+                householdId = householdRepository.getOrCreateHouseholdId()
+            } catch (e: Exception) {
+                AppLogger.e(AppLogger.TAG_VM, "Household init failed", e)
+                householdId = null
+            }
+        } else {
+            householdId = null
+            householdMembers = emptyList()
+        }
+    }
 
-    // ---------------------------
-    // Notifications permission gate (Android 13+)
-    // - only after onboarding is done
-    // - only when logged in
-    // - only once per install
-    // ---------------------------
+    // Observe household members
+    LaunchedEffect(householdId) {
+        cleaningReminderViewModel.onHouseholdIdChanged(householdId)
+        doctorAppointmentsViewModel.onHouseholdIdChanged(householdId)
+        contactsViewModel.onHouseholdIdChanged(householdId)
+        shoppingCartViewModel.onHouseholdIdChanged(householdId)
+
+        val id = householdId ?: return@LaunchedEffect
+        householdRepository.observeHouseholdMembers(id).collect { members ->
+            householdMembers = members
+        }
+    }
+
+    // --------------------
+    // Notifications permission gate
+    // --------------------
     val notifPrefs = remember(context) {
         context.getSharedPreferences("helping_hand_prefs", Context.MODE_PRIVATE)
     }
@@ -125,134 +127,52 @@ fun AppNavigation(
 
     val notificationPermissionLauncher =
         rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
-            AppLogger.d(AppLogger.TAG_VM, "POST_NOTIFICATIONS result: granted=$granted")
-            // We already mark before launching, but keep this too for safety.
             notifPrefs.edit().putBoolean(KEY_NOTIF_PROMPT_SHOWN, true).apply()
+            AppLogger.d(AppLogger.TAG_VM, "POST_NOTIFICATIONS granted=$granted")
         }
 
     LaunchedEffect(currentUser?.uid, onboardingShown) {
-        if (Build.VERSION.SDK_INT >= 33 && onboardingShown && currentUser != null) {
+        if (
+            Build.VERSION.SDK_INT >= 33 &&
+            onboardingShown == true &&
+            currentUser != null
+        ) {
             val perm = Manifest.permission.POST_NOTIFICATIONS
-            val granted = ContextCompat.checkSelfPermission(context, perm) ==
-                    PackageManager.PERMISSION_GRANTED
-            val alreadyPrompted = notifPrefs.getBoolean(KEY_NOTIF_PROMPT_SHOWN, false)
+            val granted = ContextCompat.checkSelfPermission(
+                context,
+                perm
+            ) == PackageManager.PERMISSION_GRANTED
 
-            AppLogger.d(
-                AppLogger.TAG_VM,
-                "Notif gate: sdk=${Build.VERSION.SDK_INT}, granted=$granted, alreadyPrompted=$alreadyPrompted, onboardingShown=$onboardingShown, user=${currentUser?.uid}"
-            )
+            val alreadyPrompted =
+                notifPrefs.getBoolean(KEY_NOTIF_PROMPT_SHOWN, false)
 
             if (!granted && !alreadyPrompted) {
-                // Mark first to prevent double prompts from recomposition
                 notifPrefs.edit().putBoolean(KEY_NOTIF_PROMPT_SHOWN, true).apply()
-                AppLogger.d(AppLogger.TAG_VM, "Requesting POST_NOTIFICATIONS permission")
                 notificationPermissionLauncher.launch(perm)
             }
         }
     }
 
-    // Navigation gate: redirect based on auth, but allow onboarding and ignore null route
-    LaunchedEffect(currentUser, onboardingShown) {
-        val route = navController.currentDestination?.route
-        AppLogger.d(
-            AppLogger.TAG_NAV,
-            "Auth gate: currentUser=${currentUser?.uid}, route=$route, onboardingShown=$onboardingShown"
-        )
-
-        // If navController hasn't set a destination yet, don't redirect
-        if (route == null) {
-            AppLogger.d(AppLogger.TAG_NAV, "Auth gate: route is null, skipping redirect")
-            return@LaunchedEffect
-        }
-
-        // While onboarding hasn't been completed and we're on onboarding, don't redirect
-        if (!onboardingShown && route == "onboarding") {
-            AppLogger.d(AppLogger.TAG_NAV, "Auth gate: onboarding active, skipping redirect")
-            return@LaunchedEffect
-        }
-
-        if (currentUser == null &&
-            route != "login" &&
-            route != "register" &&
-            route != "onboarding"
-        ) {
-            AppLogger.d(AppLogger.TAG_NAV, "User null, forcing navigation to login")
-            navController.navigate("login") {
-                popUpTo(0) { inclusive = true }
-            }
-        } else if (currentUser != null &&
-            (route == "login" || route == "register")
-        ) {
-            AppLogger.d(AppLogger.TAG_NAV, "User logged in, navigating to dashboard")
-            navController.navigate("dashboard") {
-                popUpTo(0) { inclusive = true }
-            }
-        }
+    // --------------------
+    // HARD GATE: do not create NavHost until onboarding state is known
+    // --------------------
+    if (onboardingShown == null) {
+        Box(Modifier.fillMaxSize())
+        return
     }
 
-    // When the auth user changes, set up their user document and household
-    LaunchedEffect(currentUser) {
-        if (currentUser != null) {
-            AppLogger.d(AppLogger.TAG_VM, "Auth user changed -> ensure user and household")
-            try {
-                householdRepository.ensureUserDocument()
-                val id = householdRepository.getOrCreateHouseholdId()
-                AppLogger.d(AppLogger.TAG_VM, "Resolved householdId=$id")
-                householdId = id
-            } catch (e: Exception) {
-                AppLogger.e(
-                    AppLogger.TAG_VM,
-                    "Error initializing household: ${e.message}",
-                    e
-                )
-                householdId = null
-            }
-        } else {
-            AppLogger.d(AppLogger.TAG_VM, "No auth user, clearing household state")
-            householdId = null
-            householdMembers = emptyList()
-        }
-    }
-
-    // Observe members whenever the householdId changes
-    // notify all household-scoped ViewModels to switch listeners/paths.
-    LaunchedEffect(householdId) {
-        // Move householdId changes to the main feature ViewModels
-        try {
-            cleaningReminderViewModel.onHouseholdIdChanged(householdId)
-            doctorAppointmentsViewModel.onHouseholdIdChanged(householdId)
-            contactsViewModel.onHouseholdIdChanged(householdId)
-            shoppingCartViewModel.onHouseholdIdChanged(householdId)
-        } catch (e: Exception) {
-            AppLogger.e(AppLogger.TAG_VM, "Error propagating householdId to VMs: ${e.message}", e)
-        }
-
-        // Household member observation
-        val id = householdId
-        if (id != null) {
-            AppLogger.d(AppLogger.TAG_VM, "Starting member observation for householdId=$id")
-            householdRepository
-                .observeHouseholdMembers(id)
-                .collect { members ->
-                    AppLogger.d(
-                        AppLogger.TAG_VM,
-                        "Household members updated: count=${members.size}"
-                    )
-                    householdMembers = members
-                }
-        } else {
-            householdMembers = emptyList()
-        }
-    }
-
+    // --------------------
+    // Navigation
+    // --------------------
     NavHost(
         navController = navController,
         startDestination = when {
-            !onboardingShown -> "onboarding"
+            onboardingShown == false -> "onboarding"
             currentUser == null -> "login"
             else -> "dashboard"
         }
     ) {
+
         composable("onboarding") {
             OnboardingScreen(
                 onFinish = {
@@ -267,7 +187,7 @@ fun AppNavigation(
         composable("login") {
             LoginScreen(
                 uiState = authUiState,
-                onLogin = { email, password -> authViewModel.login(email, password) },
+                onLogin = authViewModel::login,
                 navController = navController
             )
         }
@@ -275,9 +195,7 @@ fun AppNavigation(
         composable("register") {
             RegistrationScreen(
                 uiState = authUiState,
-                onRegister = { name, email, password ->
-                    authViewModel.register(name, email, password)
-                },
+                onRegister = authViewModel::register,
                 navController = navController
             )
         }
@@ -304,10 +222,6 @@ fun AppNavigation(
             )
         }
 
-        composable("bills") {
-            Text("Bills Screen Coming Soon")
-        }
-
         composable("appointments") {
             DoctorAppointmentsScreen(
                 navController = navController,
@@ -332,62 +246,50 @@ fun AppNavigation(
         }
 
         composable("settings") {
-            val user = currentUser
             SettingsScreen(
                 hasLightSensor = hasLightSensor,
                 isDynamicTheme = dynamicThemeEnabled,
-                onDynamicThemeChange = { enabled ->
-                    scope.launch { settingsRepository.setDynamicTheme(enabled) }
+                onDynamicThemeChange = {
+                    scope.launch { settingsRepository.setDynamicTheme(it) }
                 },
                 isDarkMode = darkMode,
-                onDarkModeChange = { enabled ->
-                    scope.launch { settingsRepository.setDarkMode(enabled) }
+                onDarkModeChange = {
+                    scope.launch { settingsRepository.setDarkMode(it) }
                 },
                 navController = navController,
-                currentUserName = user?.displayName ?: "Unknown user",
-                currentUserEmail = user?.email ?: "Unknown email",
+                currentUserName = currentUser?.displayName ?: "Unknown",
+                currentUserEmail = currentUser?.email ?: "Unknown",
                 householdId = householdId,
                 householdMembers = householdMembers,
-
                 onAddHouseholdMember = { email ->
-                    val id = householdId
-                    if (id != null) {
+                    householdId?.let { hid ->
                         scope.launch {
-                            val success = householdRepository.addMemberByEmail(id, email)
-                            if (!success) {
-                                AppLogger.e(AppLogger.TAG_VM, "Failed to add member with email=$email")
-                            }
+                            householdRepository.addMemberByEmail(hid, email)
                         }
-                    } else {
-                        AppLogger.e(AppLogger.TAG_VM, "Cannot add member, householdId is null")
                     }
                 },
-
                 onJoinHousehold = { code ->
                     scope.launch {
-                        val trimmed = code.trim()
-                        if (trimmed.isBlank()) return@launch
-
-                        val success = householdRepository.joinHousehold(trimmed)
-                        if (success) {
-                            AppLogger.d(AppLogger.TAG_VM, "Joined household: $trimmed")
-                            householdId = trimmed
-                        } else {
-                            AppLogger.e(AppLogger.TAG_VM, "Failed to join household: $trimmed")
-                        }
+                        val success = householdRepository.joinHousehold(code.trim())
+                        if (success) householdId = code.trim()
                     }
                 },
-
                 onLeaveHousehold = {
                     scope.launch {
-                        val newId = householdRepository.leaveAndCreateSoloHousehold()
-                        AppLogger.d(AppLogger.TAG_VM, "Left household, new solo householdId=$newId")
-                        householdId = newId
+                        householdId =
+                            householdRepository.leaveAndCreateSoloHousehold()
                     }
                 },
-
-                onLogout = { authViewModel.logout() }
-            )
+                onLogout = authViewModel::logout,
+                onUpdateDisplayName = { newName ->
+                    scope.launch {
+                        val ok = authViewModel.updateDisplayName(newName)
+                        if (ok) {
+                            // Push Auth displayName -> Firestore users/{uid}.displayName
+                            householdRepository.ensureUserDocument()
+                        }
+                    }
+                })
         }
     }
 }
