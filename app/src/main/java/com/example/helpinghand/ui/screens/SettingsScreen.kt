@@ -24,6 +24,7 @@ import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.ExitToApp
 import androidx.compose.material.icons.filled.Group
+import androidx.compose.material.icons.filled.Help
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.AlertDialog
@@ -89,6 +90,7 @@ fun SettingsScreen(
     var showProfileDialog by remember { mutableStateOf(false) }
     var showHouseholdDialog by remember { mutableStateOf(false) }
     var showAddMemberDialog by remember { mutableStateOf(false) }
+    var showHelpDialog by remember { mutableStateOf(false) }
 
     // NEW dialogs
     var showHouseholdCodeDialog by remember { mutableStateOf(false) }
@@ -120,16 +122,26 @@ fun SettingsScreen(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
-                        Box(
+                        // Replace person icon with help button
+                        IconButton(
+                            onClick = { showHelpDialog = true },
                             modifier = Modifier
                                 .size(36.dp)
                                 .clip(CircleShape)
-                                .background(C.Primary),
-                            contentAlignment = Alignment.Center
+                                .background(C.Primary)
                         ) {
-                            Icon(Icons.Filled.Person, null, tint = C.Surface)
+                            Icon(
+                                imageVector = Icons.Filled.Help,
+                                contentDescription = "Help",
+                                tint = C.Surface
+                            )
                         }
-                        Text("Settings", fontSize = 20.sp, color = C.OnBackground)
+                        Text(
+                            text = "Settings",
+                            fontSize = 20.sp,
+                            color = C.OnBackground,
+                            modifier = Modifier.testTag("settings_title")
+                        )
                     }
                 },
                 actions = {
@@ -241,7 +253,8 @@ fun SettingsScreen(
                                 title = "Dynamic Theme",
                                 subtitle = "Auto light / dark based on ambient light",
                                 isChecked = isDynamicTheme,
-                                onCheckedChange = onDynamicThemeChange
+                                onCheckedChange = onDynamicThemeChange,
+                                switchModifier = Modifier.testTag("switch_dynamic_theme")
                             )
                             Divider(color = C.OnSurfaceVariant.copy(alpha = 0.15f))
                         }
@@ -253,7 +266,8 @@ fun SettingsScreen(
                             subtitle = if (isDynamicTheme) "Disabled while Dynamic Theme is on" else null,
                             isChecked = isDarkMode,
                             onCheckedChange = { if (!isDynamicTheme) onDarkModeChange(it) },
-                            enabled = !isDynamicTheme
+                            enabled = !isDynamicTheme,
+                            switchModifier = Modifier.testTag("switch_dark_mode")
                         )
                         Divider(color = C.OnSurfaceVariant.copy(alpha = 0.15f))
                     }
@@ -293,16 +307,6 @@ fun SettingsScreen(
                 members = householdMembers,
                 onDismiss = { showHouseholdDialog = false },
                 onAddMember = { showAddMemberDialog = true }
-            )
-        }
-
-        if (showAddMemberDialog) {
-            AddMemberDialog(
-                onDismiss = { showAddMemberDialog = false },
-                onAdd = { email ->
-                    onAddHouseholdMember(email)
-                    showAddMemberDialog = false
-                }
             )
         }
 
@@ -431,6 +435,8 @@ fun SettingsScreen(
             )
         }
     }
+    if (showHelpDialog) {
+        OnboardingDialog(onDismiss = { showHelpDialog = false })}
 }
 
 @Composable
@@ -487,7 +493,8 @@ private fun SettingsToggleRow(
     subtitle: String?,
     isChecked: Boolean,
     onCheckedChange: (Boolean) -> Unit,
-    enabled: Boolean = true
+    enabled: Boolean = true,
+    switchModifier: Modifier = Modifier
 ) {
     Row(
         modifier = Modifier
@@ -515,6 +522,7 @@ private fun SettingsToggleRow(
             checked = isChecked,
             onCheckedChange = onCheckedChange,
             enabled = enabled,
+            modifier = switchModifier,
             colors = SwitchDefaults.colors(
                 checkedThumbColor = Color.White,
                 checkedTrackColor = C.Primary,
@@ -582,7 +590,7 @@ private fun ProfileDialog(
 private fun HouseholdDialog(
     members: List<HouseholdMember>,
     onDismiss: () -> Unit,
-    onAddMember: () -> Unit
+    onAddMember: () -> Unit  // Keep parameter for compatibility but won't be used
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -629,15 +637,7 @@ private fun HouseholdDialog(
                     Divider(color = C.OnSurfaceVariant.copy(alpha = 0.15f))
                 }
 
-                Button(
-                    onClick = onAddMember,
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = ButtonDefaults.buttonColors(containerColor = C.Primary)
-                ) {
-                    Icon(Icons.Filled.Add, contentDescription = null)
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text("Add Member")
-                }
+                // Button removed - members can only be added via household code now
             }
         },
         confirmButton = {

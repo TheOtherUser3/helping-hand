@@ -1,7 +1,6 @@
 package com.example.helpinghand.ui.screens
 
 import android.content.Intent
-import android.net.Uri
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -13,6 +12,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.ChevronLeft
+import androidx.compose.material.icons.filled.Help
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
@@ -24,7 +24,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavHostController
@@ -32,6 +31,7 @@ import coil.compose.rememberAsyncImagePainter
 import com.example.helpinghand.data.model.Meal
 import com.example.helpinghand.ui.theme.ShoppingColors as C
 import com.example.helpinghand.viewmodel.MealsViewModel
+import androidx.core.net.toUri
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -41,7 +41,7 @@ fun MealsScreen(
 ) {
     val meals by viewModel.meals.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
-
+    var showHelpDialog by remember { mutableStateOf(false) }
     // Search
     var searchQuery by remember { mutableStateOf("") }
 
@@ -98,16 +98,26 @@ fun MealsScreen(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
-                        Box(
+                        // Replace person icon with help button
+                        IconButton(
+                            onClick = { showHelpDialog = true },
                             modifier = Modifier
                                 .size(36.dp)
                                 .clip(CircleShape)
-                                .background(C.Primary),
-                            contentAlignment = Alignment.Center
+                                .background(C.Primary)
                         ) {
-                            Icon(Icons.Filled.Person, null, tint = C.Surface)
+                            Icon(
+                                imageVector = Icons.Filled.Help,
+                                contentDescription = "Help",
+                                tint = C.Surface
+                            )
                         }
-                        Text("Shopping & Meals", fontSize = 20.sp, color = C.OnBackground)
+                        Text(
+                            text = "Shopping & Meals",
+                            fontSize = 20.sp,
+                            color = C.OnBackground,
+                            modifier = Modifier.testTag("dashboard_title")
+                        )
                     }
                 },
                 actions = {
@@ -202,10 +212,9 @@ fun MealsScreen(
                                 meal = meal,
                                 onAddMissing = { viewModel.addMissingIngredients(meal) },
                                 onOpenRecipe = { url ->
-                                    val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
+                                    val intent = Intent(Intent.ACTION_VIEW, url.toUri())
                                     navController.context.startActivity(intent)
-                                },
-                                modifier = Modifier.testTag("meal_card_${meal.id}")
+                                }
                             )
                         }
                     }
@@ -213,6 +222,8 @@ fun MealsScreen(
             }
         }
     }
+    if (showHelpDialog) {
+        OnboardingDialog(onDismiss = { showHelpDialog = false })}
 }
 
 
@@ -224,8 +235,7 @@ fun MealsScreen(
 fun MealCard(
     meal: Meal,
     onAddMissing: () -> Unit,
-    onOpenRecipe: (String) -> Unit,
-    modifier: Modifier = Modifier
+    onOpenRecipe: (String) -> Unit
 ) {
     Surface(
         modifier = Modifier

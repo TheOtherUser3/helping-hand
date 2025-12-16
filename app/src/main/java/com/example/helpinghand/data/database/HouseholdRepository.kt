@@ -117,8 +117,55 @@ class HouseholdRepository(
     }
 
     /**
+     * Invite/add by email.
+     * This FORCE-moves that user into this household
+     */
+    suspend fun addMemberByEmail(householdId: String, email: String): Boolean {
+        return try {
+            val trimmedEmailLower = email.trim().lowercase()
+            if (trimmedEmailLower.isBlank()) return false
+
+            val userQuery = usersCol.whereEqualTo("emailLower", trimmedEmailLower).get().await()
+            if (userQuery.isEmpty) return false
+
+            val uid = userQuery.documents.first().id
+            val hid = householdId.trim()
+            if (hid.isBlank()) return false
+
+            val targetRef = householdsCol.document(hid)
+            if (!targetRef.get().await().exists()) return false
+
+            val userRef = usersCol.document(uid)
+
+            db.runTransaction { tx ->
+                // READS FIRST
+                val uSnap = tx.get(userRef)
+                val oldHouseholdId = uSnap.getString("householdId")
+
+                val oldRef =
+                    if (!oldHouseholdId.isNullOrBlank() && oldHouseholdId != hid) householdsCol.document(oldHouseholdId)
+                    else null
+                val oldSnap = oldRef?.let { tx.get(it) }
+
+                // WRITES AFTER
+                tx.update(targetRef, "members", FieldValue.arrayUnion(uid))
+                tx.update(userRef, "householdId", hid)
+
+                if (oldRef != null && oldSnap != null && oldSnap.exists()) {
+                    tx.update(oldRef, "members", FieldValue.arrayRemove(uid))
+                }
+            }.await()
+
+            true
+        } catch (e: Exception) {
+            AppLogger.e(AppLogger.TAG_VM, "addMemberByEmail: FAILED: ${e.message}", e)
+            false
+        }
+    }
+
+    /**
      * Join an existing household by its id (shareable code).
-     * FORCE-sets the current user's householdId to the target household.
+     * sets the current user's householdId to the target household.
      */
     suspend fun joinHousehold(targetHouseholdId: String): Boolean {
         return try {
@@ -182,7 +229,7 @@ class HouseholdRepository(
             ).await()
 
             db.runTransaction { tx ->
-                // READS FIRST (only if needed)
+                // READS FIRST
                 val oldRef =
                     if (!oldHouseholdId.isNullOrBlank() && oldHouseholdId != newDoc.id) householdsCol.document(oldHouseholdId)
                     else null
