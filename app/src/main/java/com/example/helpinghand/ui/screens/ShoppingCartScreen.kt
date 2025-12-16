@@ -14,6 +14,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Help
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
@@ -49,6 +50,7 @@ fun ShoppingCartScreen(
     mealsViewModel: MealsViewModel
 ) {
     val items by viewModel.items.collectAsState()
+    var showHelpDialog by remember { mutableStateOf(false) }
 
     var showDialog by remember { mutableStateOf(false) }
     var newItemText by remember { mutableStateOf(TextFieldValue("")) }
@@ -77,17 +79,28 @@ fun ShoppingCartScreen(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
-                        Box(
+                        // Replace person icon with help button
+                        IconButton(
+                            onClick = { showHelpDialog = true },
                             modifier = Modifier
                                 .size(36.dp)
                                 .clip(CircleShape)
-                                .background(C.Primary),
-                            contentAlignment = Alignment.Center
+                                .background(C.Primary)
                         ) {
-                            Icon(Icons.Filled.Person, null, tint = C.Surface)
+                            Icon(
+                                imageVector = Icons.Filled.Help,
+                                contentDescription = "Help",
+                                tint = C.Surface
+                            )
                         }
-                        Text("Shopping & Meals", fontSize = 20.sp, color = C.OnBackground)
+                        Text(
+                            text = "Shopping & Meals",
+                            fontSize = 20.sp,
+                            color = C.OnBackground,
+                            modifier = Modifier.testTag("dashboard_title")
+                        )
                     }
+
                 },
                 actions = {
                     IconButton(onClick = { navController.navigate("settings") },
@@ -346,6 +359,9 @@ fun ShoppingCartScreen(
             )
         }
     }
+
+    if (showHelpDialog) {
+        OnboardingDialog(onDismiss = { showHelpDialog = false })}
 }
 
 @Composable

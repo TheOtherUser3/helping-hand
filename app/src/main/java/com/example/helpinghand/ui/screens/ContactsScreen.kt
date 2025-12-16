@@ -15,6 +15,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Help
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Phone
 import androidx.compose.material.icons.filled.Settings
@@ -22,6 +23,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
@@ -50,7 +52,7 @@ fun ContactsScreen(
     viewModel: ContactsViewModel
 ) {
     val contacts by viewModel.contacts.collectAsState()
-
+    var showHelpDialog by remember { mutableStateOf(false) }
     var showDialog by remember { mutableStateOf(false) }
     var nameField by remember { mutableStateOf(TextFieldValue("")) }
     var phoneField by remember { mutableStateOf(TextFieldValue("")) }
@@ -81,15 +83,17 @@ fun ContactsScreen(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
-                        Box(
+                        // Replace person icon with help button
+                        IconButton(
+                            onClick = { showHelpDialog = true },
                             modifier = Modifier
                                 .size(36.dp)
-                                .background(C.Primary, CircleShape),
-                            contentAlignment = Alignment.Center
+                                .clip(CircleShape)
+                                .background(C.Primary)
                         ) {
                             Icon(
-                                imageVector = Icons.Filled.Person,
-                                contentDescription = "Profile",
+                                imageVector = Icons.Filled.Help,
+                                contentDescription = "Help",
                                 tint = C.Surface
                             )
                         }
@@ -97,7 +101,7 @@ fun ContactsScreen(
                             text = "Contacts",
                             fontSize = 20.sp,
                             color = C.OnBackground,
-                            modifier = Modifier.testTag("contacts_title")
+                            modifier = Modifier.testTag("dashboard_title")
                         )
                     }
                 },
@@ -280,6 +284,8 @@ fun ContactsScreen(
             )
         }
     }
+    if (showHelpDialog) {
+        OnboardingDialog(onDismiss = { showHelpDialog = false })}
 }
 
 @Composable

@@ -24,6 +24,7 @@ import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.ExitToApp
 import androidx.compose.material.icons.filled.Group
+import androidx.compose.material.icons.filled.Help
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.AlertDialog
@@ -89,6 +90,7 @@ fun SettingsScreen(
     var showProfileDialog by remember { mutableStateOf(false) }
     var showHouseholdDialog by remember { mutableStateOf(false) }
     var showAddMemberDialog by remember { mutableStateOf(false) }
+    var showHelpDialog by remember { mutableStateOf(false) }
 
     // NEW dialogs
     var showHouseholdCodeDialog by remember { mutableStateOf(false) }
@@ -120,14 +122,19 @@ fun SettingsScreen(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
-                        Box(
+                        // Replace person icon with help button
+                        IconButton(
+                            onClick = { showHelpDialog = true },
                             modifier = Modifier
                                 .size(36.dp)
                                 .clip(CircleShape)
-                                .background(C.Primary),
-                            contentAlignment = Alignment.Center
+                                .background(C.Primary)
                         ) {
-                            Icon(Icons.Filled.Person, null, tint = C.Surface)
+                            Icon(
+                                imageVector = Icons.Filled.Help,
+                                contentDescription = "Help",
+                                tint = C.Surface
+                            )
                         }
                         Text(
                             text = "Settings",
@@ -428,6 +435,8 @@ fun SettingsScreen(
             )
         }
     }
+    if (showHelpDialog) {
+        OnboardingDialog(onDismiss = { showHelpDialog = false })}
 }
 
 @Composable

@@ -7,10 +7,11 @@ import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.os.Build
+import android.content.pm.PackageManager
 import androidx.annotation.RequiresApi
-import androidx.annotation.RequiresPermission
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
+import androidx.core.content.ContextCompat
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import com.example.helpinghand.HelpingHandApp
@@ -20,13 +21,11 @@ import com.example.helpinghand.data.model.CleaningReminder
 import java.time.LocalDate
 import com.example.helpinghand.AppLogger
 
-
 class CleaningReminderWorker(
     appContext: Context,
     params: WorkerParameters
 ) : CoroutineWorker(appContext, params) {
 
-    @RequiresPermission(Manifest.permission.POST_NOTIFICATIONS)
     @RequiresApi(Build.VERSION_CODES.O)
     override suspend fun doWork(): Result {
         AppLogger.d(AppLogger.TAG_ASYNC, "CleaningReminderWorker.doWork started")
@@ -69,9 +68,25 @@ class CleaningReminderWorker(
         }
     }
 
-    @RequiresPermission(Manifest.permission.POST_NOTIFICATIONS)
     private fun showDueNotification(dueReminders: List<CleaningReminder>) {
         val context = applicationContext
+
+        // Android 13+ requires runtime POST_NOTIFICATIONS permission. If missing, skip notify().
+        if (Build.VERSION.SDK_INT >= 33) {
+            val granted = ContextCompat.checkSelfPermission(
+                context,
+                Manifest.permission.POST_NOTIFICATIONS
+            ) == PackageManager.PERMISSION_GRANTED
+
+            if (!granted) {
+                AppLogger.d(
+                    AppLogger.TAG_VM,
+                    "CleaningReminderWorker: POST_NOTIFICATIONS not granted, skipping notification"
+                )
+                return
+            }
+        }
+
         val channelId = "cleaning_reminders_channel"
 
         // Create notification channel
