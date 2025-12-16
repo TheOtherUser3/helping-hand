@@ -27,6 +27,7 @@ import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavHostController
+import androidx.compose.ui.platform.testTag
 import com.example.helpinghand.data.model.DoctorAppointment
 import com.example.helpinghand.data.model.formatPhoneNumber
 import com.example.helpinghand.ui.theme.ShoppingColors as C
@@ -51,8 +52,6 @@ fun DoctorAppointmentsScreen(
     val appointments by viewModel.appointments.collectAsState()
     var showHelpDialog by remember { mutableStateOf(false) }
     var showAddDialog by remember { mutableStateOf(false) }
-    var showEditDialog by remember { mutableStateOf(false) }
-    var appointmentToEdit by remember { mutableStateOf<DoctorAppointment?>(null) }
 
     val groupedAppointments = appointments.groupBy { it.type }
 
@@ -61,6 +60,7 @@ fun DoctorAppointmentsScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(inner)
+                .testTag("appointments_screen")
         ) {
             // --- Top App Bar ---
             TopAppBar(
@@ -123,7 +123,9 @@ fun DoctorAppointmentsScreen(
                         Icon(Icons.Filled.Add, contentDescription = null, tint = C.Primary)
                     },
                     colors = AssistChipDefaults.assistChipColors(containerColor = C.Surface),
-                    modifier = Modifier.weight(1f)
+                    modifier = Modifier
+                        .weight(1f)
+                        .testTag("appointments_add_button")
                 )
             }
 
@@ -172,13 +174,6 @@ fun DoctorAppointmentsScreen(
                                     appointment = appointment,
                                     onUpdateNextVisit = { newDate ->
                                         viewModel.updateNextVisit(appointment, newDate)
-                                    },
-                                    onEdit = {
-                                        appointmentToEdit = appointment
-                                        showEditDialog = true
-                                    },
-                                    onDelete = {
-                                        viewModel.deleteAppointment(appointment)
                                     }
                                 )
                                 Divider(color = C.OnSurfaceVariant.copy(alpha = 0.15f))
@@ -199,25 +194,6 @@ fun DoctorAppointmentsScreen(
                 }
             )
         }
-
-        // --- Edit Appointment Dialog ---
-        if (showEditDialog && appointmentToEdit != null) {
-            EditAppointmentDialog(
-                appointment = appointmentToEdit!!,
-                onDismiss = { showEditDialog = false },
-                onSave = { name, typeString, phone, office, intervalMonths ->
-                    viewModel.updateAppointment(
-                        appointmentToEdit!!,
-                        name,
-                        typeString,
-                        phone,
-                        office,
-                        intervalMonths
-                    )
-                    showEditDialog = false
-                }
-            )
-        }
     }
     if (showHelpDialog) {
         OnboardingDialog(onDismiss = { showHelpDialog = false })}
@@ -228,9 +204,7 @@ fun DoctorAppointmentsScreen(
 @Composable
 private fun AppointmentRow(
     appointment: DoctorAppointment,
-    onUpdateNextVisit: (LocalDate) -> Unit,
-    onEdit: () -> Unit,
-    onDelete: () -> Unit
+    onUpdateNextVisit: (LocalDate) -> Unit
 ) {
     val context = LocalContext.current
 
@@ -245,8 +219,7 @@ private fun AppointmentRow(
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
+            horizontalArrangement = Arrangement.SpaceBetween
         ) {
             Column(modifier = Modifier.weight(1f)) {
                 Text(
@@ -262,45 +235,12 @@ private fun AppointmentRow(
                     fontSize = 14.sp
                 )
             }
-
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(4.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                // Edit Button
-                IconButton(
-                    onClick = onEdit,
-                    modifier = Modifier.size(32.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Filled.Edit,
-                        contentDescription = "Edit appointment",
-                        tint = C.Primary,
-                        modifier = Modifier.size(20.dp)
-                    )
-                }
-
-                // Delete Button
-                IconButton(
-                    onClick = onDelete,
-                    modifier = Modifier.size(32.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Filled.Delete,
-                        contentDescription = "Delete appointment",
-                        tint = MaterialTheme.colorScheme.error,
-                        modifier = Modifier.size(20.dp)
-                    )
-                }
-
-                // Expand/Collapse
-                Icon(
-                    imageVector = if (expanded) Icons.Filled.ExpandLess else Icons.Filled.ExpandMore,
-                    contentDescription = if (expanded) "Collapse" else "Expand",
-                    tint = C.Primary,
-                    modifier = Modifier.size(24.dp)
-                )
-            }
+            Icon(
+                imageVector = if (expanded) Icons.Filled.ExpandLess else Icons.Filled.ExpandMore,
+                contentDescription = if (expanded) "Collapse" else "Expand",
+                tint = C.Primary,
+                modifier = Modifier.size(24.dp)
+            )
         }
 
         if (expanded) {
@@ -504,216 +444,10 @@ private fun AddAppointmentDialog(
                             doctorName = new
                         }
                     },
-                    label = { Text("Doctor/Clinic Name (max $MAX_NAME_CHARS)") },
-                    modifier = Modifier.fillMaxWidth(),
-                    singleLine = true,
-                    supportingText = {
-                        Text(
-                            text = "${doctorName.text.length}/$MAX_NAME_CHARS",
-                            fontSize = 12.sp,
-                            color = if (doctorName.text.length >= MAX_NAME_CHARS)
-                                MaterialTheme.colorScheme.error
-                            else
-                                C.OnSurfaceVariant
-                        )
-                    }
-                )
-
-                // Type dropdown
-                ExposedDropdownMenuBox(
-                    expanded = expanded,
-                    onExpandedChange = { expanded = !expanded }
-                ) {
-                    OutlinedTextField(
-                        value = when (selectedType) {
-                            AppointmentTypeUi.DOCTOR -> "Doctor"
-                            AppointmentTypeUi.DENTIST -> "Dentist"
-                            AppointmentTypeUi.SPECIALIST -> "Specialist"
-                        },
-                        onValueChange = {},
-                        readOnly = true,
-                        label = { Text("Type") },
-                        trailingIcon = {
-                            Icon(
-                                imageVector = Icons.Filled.ArrowDropDown,
-                                contentDescription = "Dropdown"
-                            )
-                        },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .menuAnchor()
-                    )
-
-                    ExposedDropdownMenu(
-                        expanded = expanded,
-                        onDismissRequest = { expanded = false }
-                    ) {
-                        DropdownMenuItem(
-                            text = { Text("Doctor") },
-                            onClick = {
-                                selectedType = AppointmentTypeUi.DOCTOR
-                                expanded = false
-                            }
-                        )
-                        DropdownMenuItem(
-                            text = { Text("Dentist") },
-                            onClick = {
-                                selectedType = AppointmentTypeUi.DENTIST
-                                expanded = false
-                            }
-                        )
-                        DropdownMenuItem(
-                            text = { Text("Specialist") },
-                            onClick = {
-                                selectedType = AppointmentTypeUi.SPECIALIST
-                                expanded = false
-                            }
-                        )
-                    }
-                }
-
-                OutlinedTextField(
-                    value = phoneNumber,
-                    onValueChange = { new ->
-                        val text = new.text
-                        if (
-                            text.length <= MAX_PHONE_CHARS &&
-                            text.all { it.isDigit() || it == '-' || it == ' ' || it == '(' || it == ')' }
-                        ) {
-                            phoneNumber = new
-                        }
-                    },
-                    label = { Text("Phone Number (max $MAX_PHONE_CHARS)") },
-                    modifier = Modifier.fillMaxWidth(),
-                    singleLine = true,
-                    supportingText = {
-                        Text(
-                            text = "${phoneNumber.text.length}/$MAX_PHONE_CHARS",
-                            fontSize = 12.sp,
-                            color = if (phoneNumber.text.length >= MAX_PHONE_CHARS)
-                                MaterialTheme.colorScheme.error
-                            else
-                                C.OnSurfaceVariant
-                        )
-                    }
-                )
-
-                OutlinedTextField(
-                    value = officeName,
-                    onValueChange = { new ->
-                        if (new.text.length <= MAX_OFFICE_CHARS) {
-                            officeName = new
-                        }
-                    },
-                    label = { Text("Office Name (max $MAX_OFFICE_CHARS)") },
-                    modifier = Modifier.fillMaxWidth(),
-                    singleLine = true,
-                    supportingText = {
-                        Text(
-                            text = "${officeName.text.length}/$MAX_OFFICE_CHARS",
-                            fontSize = 12.sp,
-                            color = if (officeName.text.length >= MAX_OFFICE_CHARS)
-                                MaterialTheme.colorScheme.error
-                            else
-                                C.OnSurfaceVariant
-                        )
-                    }
-                )
-
-                OutlinedTextField(
-                    value = intervalMonths,
-                    onValueChange = { new ->
-                        if (new.all { it.isDigit() } && new.length <= 2) {
-                            intervalMonths = new
-                        }
-                    },
-                    label = { Text("Visit Interval (months)") },
+                    label = { Text("Doctor/Clinic Name") },
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true
                 )
-            }
-        },
-        containerColor = C.Surface
-    )
-}
-
-@RequiresApi(Build.VERSION_CODES.O)
-@Composable
-private fun EditAppointmentDialog(
-    appointment: DoctorAppointment,
-    onDismiss: () -> Unit,
-    onSave: (name: String, type: String, phone: String, office: String, intervalMonths: Int) -> Unit
-) {
-    var doctorName by remember { mutableStateOf(TextFieldValue(appointment.doctorName)) }
-    var phoneNumber by remember { mutableStateOf(TextFieldValue(appointment.phoneRaw)) }
-    var officeName by remember { mutableStateOf(TextFieldValue(appointment.officeName)) }
-    var selectedType by remember {
-        mutableStateOf(
-            when (appointment.type) {
-                "Dentist" -> AppointmentTypeUi.DENTIST
-                "Specialist" -> AppointmentTypeUi.SPECIALIST
-                else -> AppointmentTypeUi.DOCTOR
-            }
-        )
-    }
-    var intervalMonths by remember { mutableStateOf(appointment.intervalMonths.toString()) }
-    var expanded by remember { mutableStateOf(false) }
-
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        confirmButton = {
-            TextButton(
-                onClick = {
-                    val name = doctorName.text.trim()
-                    val phone = phoneNumber.text.trim()
-                    val office = officeName.text.trim()
-                    val interval = intervalMonths.toIntOrNull() ?: 6
-
-                    if (name.isNotEmpty()) {
-                        val typeString = when (selectedType) {
-                            AppointmentTypeUi.DOCTOR -> "Doctor"
-                            AppointmentTypeUi.DENTIST -> "Dentist"
-                            AppointmentTypeUi.SPECIALIST -> "Specialist"
-                        }
-                        onSave(name, typeString, phone, office, interval)
-                    }
-                }
-            ) {
-                Text("Save", color = C.Primary)
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text("Cancel", color = C.OnSurfaceVariant)
-            }
-        },
-        title = { Text("Edit Appointment", color = C.OnBackground) },
-        text = {
-            Column(
-                modifier = Modifier.fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                OutlinedTextField(
-                    value = doctorName,
-                    onValueChange = { new ->
-                        if (new.text.length <= MAX_NAME_CHARS) {
-                            doctorName = new
-                        }
-                    },
-                    label = { Text("Doctor/Clinic Name (max $MAX_NAME_CHARS)") },
-                    modifier = Modifier.fillMaxWidth(),
-                    singleLine = true,
-                    supportingText = {
-                        Text(
-                            text = "${doctorName.text.length}/$MAX_NAME_CHARS",
-                            fontSize = 12.sp,
-                            color = if (doctorName.text.length >= MAX_NAME_CHARS)
-                                MaterialTheme.colorScheme.error
-                            else
-                                C.OnSurfaceVariant
-                        )
-                    }
-                )
 
                 // Type dropdown
                 ExposedDropdownMenuBox(
@@ -774,24 +508,14 @@ private fun EditAppointmentDialog(
                         val text = new.text
                         if (
                             text.length <= MAX_PHONE_CHARS &&
-                            text.all { it.isDigit() || it == '-' || it == ' ' || it == '(' || it == ')' }
+                            text.all { it.isDigit() || it == '-' || it == ' ' }
                         ) {
                             phoneNumber = new
                         }
                     },
-                    label = { Text("Phone Number (max $MAX_PHONE_CHARS)") },
+                    label = { Text("Phone Number") },
                     modifier = Modifier.fillMaxWidth(),
-                    singleLine = true,
-                    supportingText = {
-                        Text(
-                            text = "${phoneNumber.text.length}/$MAX_PHONE_CHARS",
-                            fontSize = 12.sp,
-                            color = if (phoneNumber.text.length >= MAX_PHONE_CHARS)
-                                MaterialTheme.colorScheme.error
-                            else
-                                C.OnSurfaceVariant
-                        )
-                    }
+                    singleLine = true
                 )
 
                 OutlinedTextField(
@@ -801,19 +525,9 @@ private fun EditAppointmentDialog(
                             officeName = new
                         }
                     },
-                    label = { Text("Office Name (max $MAX_OFFICE_CHARS)") },
+                    label = { Text("Office Name") },
                     modifier = Modifier.fillMaxWidth(),
-                    singleLine = true,
-                    supportingText = {
-                        Text(
-                            text = "${officeName.text.length}/$MAX_OFFICE_CHARS",
-                            fontSize = 12.sp,
-                            color = if (officeName.text.length >= MAX_OFFICE_CHARS)
-                                MaterialTheme.colorScheme.error
-                            else
-                                C.OnSurfaceVariant
-                        )
-                    }
+                    singleLine = true
                 )
 
                 OutlinedTextField(

@@ -210,7 +210,7 @@ fun ShoppingCartScreen(
 
             // --- Suggested Recipes Section ---
             val meals by mealsViewModel.meals.collectAsState()
-            var currentMealIndex by remember { mutableStateOf(0) }
+            var currentMealIndex by remember { mutableIntStateOf(0) }
 
             if (meals.isNotEmpty()) {
                 val currentMeal = meals[currentMealIndex % meals.size]

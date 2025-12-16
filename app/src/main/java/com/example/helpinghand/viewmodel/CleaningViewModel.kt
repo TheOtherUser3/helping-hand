@@ -34,14 +34,6 @@ class CleaningReminderViewModel(
                 emptyList()
             )
 
-    val nextDueReminder: StateFlow<CleaningReminder?> =
-        dao.getNextDue()
-            .stateIn(
-                viewModelScope,
-                SharingStarted.WhileSubscribed(5000),
-                null
-            )
-
     @RequiresApi(Build.VERSION_CODES.O)
     private fun todayEpochDay(): Int = LocalDate.now().toEpochDay().toInt()
 
