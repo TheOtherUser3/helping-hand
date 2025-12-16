@@ -229,9 +229,6 @@ class DoctorAppointmentsSyncRepository(
                     )
                 }
 
-                // IMPORTANT FIX:
-                // Do NOT deleteAll() on every snapshot. That wipes local-only items when Firestore is empty/slow.
-                // Instead: upsert remote into Room (REPLACE by id).
                 scope.launch {
                     try {
                         dao.insertAll(remote)

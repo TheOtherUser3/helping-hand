@@ -81,6 +81,11 @@ UPDATE 12/02
 3. **Targeted Compose UI tests:**  
    We added UI tests for core flows such as opening screens, navigating between them, and adding new items through dialogs. (although there is one mistake with the tests we need to fix at the moment)
 
+UPDATE 12/16
+Build Instructions: Add SPOONACULAR_API_KEY into the local.properties
+
+Reflection Link:
+https://docs.google.com/document/d/1522Dyl-wVY_XefK2DUq_VAcEYfpAbZ1vMk5SGXo3dQk/edit?tab=t.0#heading=h.rslytixogkzo
 
 
 **Signed,**  

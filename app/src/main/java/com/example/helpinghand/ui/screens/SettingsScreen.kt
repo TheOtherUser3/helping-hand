@@ -670,7 +670,7 @@ private fun ProfileDialog(
 private fun HouseholdDialog(
     members: List<HouseholdMember>,
     onDismiss: () -> Unit,
-    onAddMember: () -> Unit
+    onAddMember: () -> Unit  // Keep parameter for compatibility but won't be used
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
