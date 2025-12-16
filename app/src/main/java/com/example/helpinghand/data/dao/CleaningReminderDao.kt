@@ -10,14 +10,6 @@ interface CleaningReminderDao {
     @Query("SELECT * FROM cleaning_reminders ORDER BY id ASC")
     fun getAll(): Flow<List<CleaningReminder>>
 
-    @Insert
-    suspend fun insert(reminder: CleaningReminder)
-
-    @Update
-    suspend fun update(reminder: CleaningReminder)
-
-    @Delete
-    suspend fun delete(reminder: CleaningReminder)
 
     // Next closest cleaning due (for dashboard)
     @Query("SELECT * FROM cleaning_reminders ORDER BY nextDueEpochDay ASC LIMIT 1")

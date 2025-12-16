@@ -129,7 +129,12 @@ fun SettingsScreen(
                         ) {
                             Icon(Icons.Filled.Person, null, tint = C.Surface)
                         }
-                        Text("Settings", fontSize = 20.sp, color = C.OnBackground)
+                        Text(
+                            text = "Settings",
+                            fontSize = 20.sp,
+                            color = C.OnBackground,
+                            modifier = Modifier.testTag("settings_title")
+                        )
                     }
                 },
                 actions = {
@@ -241,7 +246,8 @@ fun SettingsScreen(
                                 title = "Dynamic Theme",
                                 subtitle = "Auto light / dark based on ambient light",
                                 isChecked = isDynamicTheme,
-                                onCheckedChange = onDynamicThemeChange
+                                onCheckedChange = onDynamicThemeChange,
+                                switchModifier = Modifier.testTag("switch_dynamic_theme")
                             )
                             Divider(color = C.OnSurfaceVariant.copy(alpha = 0.15f))
                         }
@@ -253,7 +259,8 @@ fun SettingsScreen(
                             subtitle = if (isDynamicTheme) "Disabled while Dynamic Theme is on" else null,
                             isChecked = isDarkMode,
                             onCheckedChange = { if (!isDynamicTheme) onDarkModeChange(it) },
-                            enabled = !isDynamicTheme
+                            enabled = !isDynamicTheme,
+                            switchModifier = Modifier.testTag("switch_dark_mode")
                         )
                         Divider(color = C.OnSurfaceVariant.copy(alpha = 0.15f))
                     }
@@ -477,7 +484,8 @@ private fun SettingsToggleRow(
     subtitle: String?,
     isChecked: Boolean,
     onCheckedChange: (Boolean) -> Unit,
-    enabled: Boolean = true
+    enabled: Boolean = true,
+    switchModifier: Modifier = Modifier
 ) {
     Row(
         modifier = Modifier
@@ -505,6 +513,7 @@ private fun SettingsToggleRow(
             checked = isChecked,
             onCheckedChange = onCheckedChange,
             enabled = enabled,
+            modifier = switchModifier,
             colors = SwitchDefaults.colors(
                 checkedThumbColor = Color.White,
                 checkedTrackColor = C.Primary,
